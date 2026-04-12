@@ -3,7 +3,6 @@ package repository
 import (
 	"context"
 	"database/sql"
-	"errors"
 
 	"github.com/Dashulya-coder/CaseTaskNotifier/internal/model"
 )
@@ -102,5 +101,26 @@ func (r *githubRepository) GetByID(ctx context.Context, id int64) (*model.GitHub
 }
 
 func (r *githubRepository) UpdateLastSeenTag(ctx context.Context, repoID int64, tag string, releaseURL string) error {
-	return errors.New("not implemented")
+	query := `
+		UPDATE repositories
+		SET last_seen_tag = $1,
+		    last_release_url = $2,
+		    updated_at = NOW()
+		WHERE id = $3
+	`
+
+	result, err := r.db.ExecContext(ctx, query, tag, releaseURL, repoID)
+	if err != nil {
+		return err
+	}
+
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if rowsAffected == 0 {
+		return sql.ErrNoRows
+	}
+
+	return nil
 }

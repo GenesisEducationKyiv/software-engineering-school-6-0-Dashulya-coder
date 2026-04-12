@@ -27,15 +27,25 @@ func main() {
 
 	repoRepo := repository.NewGitHubRepository(db)
 
-	foundRepo, err := repoRepo.GetByID(context.Background(), 1)
+	err = repoRepo.UpdateLastSeenTag(
+		context.Background(),
+		1,
+		"go1.24.1",
+		"https://github.com/golang/go/releases/tag/go1.24.1",
+	)
 	if err != nil {
 		log.Fatal(err)
 	}
-	if foundRepo == nil {
+
+	updatedRepo, err := repoRepo.GetByID(context.Background(), 1)
+	if err != nil {
+		log.Fatal(err)
+	}
+	if updatedRepo == nil {
 		log.Fatal("repository not found by id")
 	}
 
-	log.Printf("found repository by id: %+v\n", *foundRepo)
+	log.Printf("updated repository: %+v\n", *updatedRepo)
 	
 	log.Println("server started on :" + cfg.Port)
 	if err := http.ListenAndServe(":"+cfg.Port, http.NewServeMux()); err != nil {
