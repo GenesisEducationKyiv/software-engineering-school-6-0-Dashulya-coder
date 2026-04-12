@@ -139,7 +139,27 @@ func (r *subscriptionRepository) ExistsByEmailAndRepo(ctx context.Context, email
 }
 
 func (r *subscriptionRepository) ConfirmByToken(ctx context.Context, token string) error {
-	return errors.New("not implemented")
+	query := `
+		UPDATE subscriptions
+		SET confirmed = TRUE,
+		    updated_at = NOW()
+		WHERE confirm_token = $1
+	`
+
+	result, err := r.db.ExecContext(ctx, query, token)
+	if err != nil {
+		return err
+	}
+
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if rowsAffected == 0 {
+		return sql.ErrNoRows
+	}
+
+	return nil
 }
 
 func (r *subscriptionRepository) DeactivateByToken(ctx context.Context, token string) error {

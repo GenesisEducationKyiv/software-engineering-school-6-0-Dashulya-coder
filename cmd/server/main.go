@@ -27,16 +27,21 @@ func main() {
 
 	subRepo := repository.NewSubscriptionRepository(db)
 
-	sub, err := subRepo.FindByUnsubscribeToken(context.Background(), "unsubscribe123")
+	err = subRepo.ConfirmByToken(context.Background(), "confirm123")
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	sub, err := subRepo.FindByConfirmToken(context.Background(), "confirm123")
 	if err != nil {
 		log.Fatal(err)
 	}
 	if sub == nil {
-		log.Fatal("subscription not found by unsubscribe token")
+		log.Fatal("subscription not found")
 	}
 
-	log.Printf("found subscription by unsubscribe token: %+v\n", *sub)
-	
+	log.Printf("after confirm: %+v\n", *sub)
+
 	log.Println("server started on :" + cfg.Port)
 	if err := http.ListenAndServe(":"+cfg.Port, http.NewServeMux()); err != nil {
 		log.Fatal(err)
