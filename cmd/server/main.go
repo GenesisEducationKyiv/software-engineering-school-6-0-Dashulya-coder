@@ -27,12 +27,15 @@ func main() {
 
 	subRepo := repository.NewSubscriptionRepository(db)
 
-	exists, err := subRepo.ExistsByEmailAndRepo(context.Background(), "test@example.com", 1)
+	sub, err := subRepo.FindByConfirmToken(context.Background(), "confirm123")
 	if err != nil {
 		log.Fatal(err)
 	}
+	if sub == nil {
+		log.Fatal("subscription not found by confirm token")
+	}
 
-	log.Printf("subscription exists: %v\n", exists)
+	log.Printf("found subscription by confirm token: %+v\n", *sub)
 	
 	log.Println("server started on :" + cfg.Port)
 	if err := http.ListenAndServe(":"+cfg.Port, http.NewServeMux()); err != nil {

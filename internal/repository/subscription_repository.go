@@ -57,7 +57,33 @@ func (r *subscriptionRepository) Create(ctx context.Context, sub *model.Subscrip
 }
 
 func (r *subscriptionRepository) FindByConfirmToken(ctx context.Context, token string) (*model.Subscription, error) {
-	return nil, errors.New("not implemented")
+	query := `
+		SELECT id, email, repository_id, confirmed, active, confirm_token, unsubscribe_token, created_at, updated_at
+		FROM subscriptions
+		WHERE confirm_token = $1
+	`
+
+	var sub model.Subscription
+
+	err := r.db.QueryRowContext(ctx, query, token).Scan(
+		&sub.ID,
+		&sub.Email,
+		&sub.RepositoryID,
+		&sub.Confirmed,
+		&sub.Active,
+		&sub.ConfirmToken,
+		&sub.UnsubscribeToken,
+		&sub.CreatedAt,
+		&sub.UpdatedAt,
+	)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil, nil
+		}
+		return nil, err
+	}
+
+	return &sub, nil
 }
 
 func (r *subscriptionRepository) FindByUnsubscribeToken(ctx context.Context, token string) (*model.Subscription, error) {
