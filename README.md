@@ -192,8 +192,6 @@ The scanner runs periodically and performs the following steps:
     - Send email notifications to all subscribers
     - Update `last_seen_tag` in the database
 
-> **Note:** GitHub API rate limits are handled gracefully. Without a token: 60 req/hour. With `GITHUB_TOKEN`: 5000 req/hour.
-
 ---
 
 ## Database
