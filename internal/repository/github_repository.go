@@ -44,7 +44,32 @@ func (r *githubRepository) Create(ctx context.Context, repo *model.GitHubReposit
 }
 
 func (r *githubRepository) FindByFullName(ctx context.Context, fullName string) (*model.GitHubRepository, error) {
-	return nil, errors.New("not implemented")
+	query := `
+		SELECT id, full_name, owner, name, last_seen_tag, last_release_url, created_at, updated_at
+		FROM repositories
+		WHERE full_name = $1
+	`
+
+	var repo model.GitHubRepository
+
+	err := r.db.QueryRowContext(ctx, query, fullName).Scan(
+		&repo.ID,
+		&repo.FullName,
+		&repo.Owner,
+		&repo.Name,
+		&repo.LastSeenTag,
+		&repo.LastReleaseURL,
+		&repo.CreatedAt,
+		&repo.UpdatedAt,
+	)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil, nil
+		}
+		return nil, err
+	}
+
+	return &repo, nil
 }
 
 func (r *githubRepository) GetByID(ctx context.Context, id int64) (*model.GitHubRepository, error) {
