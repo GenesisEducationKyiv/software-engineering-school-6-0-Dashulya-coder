@@ -25,6 +25,7 @@ var (
 type SubscriptionService interface {
 	Subscribe(ctx context.Context, email, repo string) error
 	Confirm(ctx context.Context, token string) error
+	Unsubscribe(ctx context.Context, token string) error
 }
 
 type subscriptionService struct {
@@ -139,6 +140,29 @@ func (s *subscriptionService) Confirm(ctx context.Context, token string) error {
 	}
 
 	if err := s.subRepo.ConfirmByToken(ctx, token); err != nil {
+		return err
+	}
+
+	return nil
+}
+func (s *subscriptionService) Unsubscribe(ctx context.Context, token string) error {
+	if token == "" {
+		return errors.New("invalid token")
+	}
+
+	sub, err := s.subRepo.FindByUnsubscribeToken(ctx, token)
+	if err != nil {
+		return err
+	}
+	if sub == nil {
+		return errors.New("token not found")
+	}
+
+	if !sub.Active {
+		return nil // вже відписаний
+	}
+
+	if err := s.subRepo.DeactivateByToken(ctx, token); err != nil {
 		return err
 	}
 
