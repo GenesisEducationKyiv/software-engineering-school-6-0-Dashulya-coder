@@ -26,7 +26,7 @@ type SubscriptionService interface {
 	Subscribe(ctx context.Context, email, repo string) error
 	Confirm(ctx context.Context, token string) error
 	Unsubscribe(ctx context.Context, token string) error
-	GetSubscriptionsByEmail(ctx context.Context, email string) ([]model.Subscription, error)
+	GetSubscriptionsByEmail(ctx context.Context, email string) ([]SubscriptionView, error)
 }
 
 type subscriptionService struct {
@@ -35,6 +35,12 @@ type subscriptionService struct {
 	ghClient github.Client
 	mailer   mailer.Mailer
 	baseURL  string
+}
+type SubscriptionView struct {
+	Email       string
+	Repo        string
+	Confirmed   bool
+	LastSeenTag *string
 }
 
 func NewSubscriptionService(
@@ -169,10 +175,34 @@ func (s *subscriptionService) Unsubscribe(ctx context.Context, token string) err
 
 	return nil
 }
-func (s *subscriptionService) GetSubscriptionsByEmail(ctx context.Context, email string) ([]model.Subscription, error) {
+func (s *subscriptionService) GetSubscriptionsByEmail(ctx context.Context, email string) ([]SubscriptionView, error) {
 	if err := validator.ValidateEmail(email); err != nil {
 		return nil, ErrInvalidEmail
 	}
 
-	return s.subRepo.GetByEmail(ctx, email)
+	subs, err := s.subRepo.GetByEmail(ctx, email)
+	if err != nil {
+		return nil, err
+	}
+
+	result := make([]SubscriptionView, 0, len(subs))
+
+	for _, sub := range subs {
+		repo, err := s.repoRepo.GetByID(ctx, sub.RepositoryID)
+		if err != nil {
+			return nil, err
+		}
+		if repo == nil {
+			continue
+		}
+
+		result = append(result, SubscriptionView{
+			Email:       sub.Email,
+			Repo:        repo.FullName,
+			Confirmed:   sub.Confirmed,
+			LastSeenTag: repo.LastSeenTag,
+		})
+	}
+
+	return result, nil
 }

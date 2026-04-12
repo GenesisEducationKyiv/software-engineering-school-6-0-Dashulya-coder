@@ -148,7 +148,17 @@ func (h *SubscriptionHandler) GetSubscriptions(w http.ResponseWriter, r *http.Re
 		}
 	}
 
-	writeJSON(w, http.StatusOK, subs)
+	response := make([]dto.SubscriptionResponse, 0, len(subs))
+	for _, sub := range subs {
+		response = append(response, dto.SubscriptionResponse{
+			Email:       sub.Email,
+			Repo:        sub.Repo,
+			Confirmed:   sub.Confirmed,
+			LastSeenTag: sub.LastSeenTag,
+		})
+	}
+
+	writeJSON(w, http.StatusOK, response)
 }
 
 func writeJSON(w http.ResponseWriter, status int, payload any) {
