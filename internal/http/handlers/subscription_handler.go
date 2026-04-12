@@ -131,11 +131,24 @@ func (h *SubscriptionHandler) Unsubscribe(w http.ResponseWriter, r *http.Request
 
 func (h *SubscriptionHandler) GetSubscriptions(w http.ResponseWriter, r *http.Request) {
 	email := r.URL.Query().Get("email")
-	_ = email
 
-	writeJSON(w, http.StatusNotImplemented, map[string]string{
-		"message": "not implemented yet",
-	})
+	subs, err := h.service.GetSubscriptionsByEmail(r.Context(), email)
+	if err != nil {
+		switch {
+		case errors.Is(err, service.ErrInvalidEmail):
+			writeJSON(w, http.StatusBadRequest, map[string]string{
+				"error": err.Error(),
+			})
+			return
+		default:
+			writeJSON(w, http.StatusInternalServerError, map[string]string{
+				"error": "internal server error",
+			})
+			return
+		}
+	}
+
+	writeJSON(w, http.StatusOK, subs)
 }
 
 func writeJSON(w http.ResponseWriter, status int, payload any) {

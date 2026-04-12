@@ -26,6 +26,7 @@ type SubscriptionService interface {
 	Subscribe(ctx context.Context, email, repo string) error
 	Confirm(ctx context.Context, token string) error
 	Unsubscribe(ctx context.Context, token string) error
+	GetSubscriptionsByEmail(ctx context.Context, email string) ([]model.Subscription, error)
 }
 
 type subscriptionService struct {
@@ -136,7 +137,7 @@ func (s *subscriptionService) Confirm(ctx context.Context, token string) error {
 	}
 
 	if sub.Confirmed {
-		return nil // вже підтверджено — не помилка
+		return nil
 	}
 
 	if err := s.subRepo.ConfirmByToken(ctx, token); err != nil {
@@ -159,7 +160,7 @@ func (s *subscriptionService) Unsubscribe(ctx context.Context, token string) err
 	}
 
 	if !sub.Active {
-		return nil // вже відписаний
+		return nil
 	}
 
 	if err := s.subRepo.DeactivateByToken(ctx, token); err != nil {
@@ -167,4 +168,11 @@ func (s *subscriptionService) Unsubscribe(ctx context.Context, token string) err
 	}
 
 	return nil
+}
+func (s *subscriptionService) GetSubscriptionsByEmail(ctx context.Context, email string) ([]model.Subscription, error) {
+	if err := validator.ValidateEmail(email); err != nil {
+		return nil, ErrInvalidEmail
+	}
+
+	return s.subRepo.GetByEmail(ctx, email)
 }
