@@ -119,7 +119,7 @@ func (r *subscriptionRepository) GetByEmail(ctx context.Context, email string) (
 	query := `
 		SELECT id, email, repository_id, confirmed, active, confirm_token, unsubscribe_token, created_at, updated_at
 		FROM subscriptions
-		WHERE email = $1
+		WHERE email = $1 AND active = TRUE
 		ORDER BY created_at DESC
 	`
 
