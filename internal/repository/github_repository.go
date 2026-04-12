@@ -24,7 +24,23 @@ func NewGitHubRepository(db *sql.DB) GitHubRepository {
 }
 
 func (r *githubRepository) Create(ctx context.Context, repo *model.GitHubRepository) error {
-	return errors.New("not implemented")
+	query := `
+		INSERT INTO repositories (full_name, owner, name)
+		VALUES ($1, $2, $3)
+		RETURNING id, created_at, updated_at
+	`
+
+	return r.db.QueryRowContext(
+		ctx,
+		query,
+		repo.FullName,
+		repo.Owner,
+		repo.Name,
+	).Scan(
+		&repo.ID,
+		&repo.CreatedAt,
+		&repo.UpdatedAt,
+	)
 }
 
 func (r *githubRepository) FindByFullName(ctx context.Context, fullName string) (*model.GitHubRepository, error) {
