@@ -69,7 +69,21 @@ func (r *subscriptionRepository) GetByEmail(ctx context.Context, email string) (
 }
 
 func (r *subscriptionRepository) ExistsByEmailAndRepo(ctx context.Context, email string, repoID int64) (bool, error) {
-	return false, errors.New("not implemented")
+	query := `
+		SELECT EXISTS (
+			SELECT 1
+			FROM subscriptions
+			WHERE email = $1 AND repository_id = $2
+		)
+	`
+
+	var exists bool
+	err := r.db.QueryRowContext(ctx, query, email, repoID).Scan(&exists)
+	if err != nil {
+		return false, err
+	}
+
+	return exists, nil
 }
 
 func (r *subscriptionRepository) ConfirmByToken(ctx context.Context, token string) error {

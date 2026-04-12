@@ -7,7 +7,6 @@ import (
 
 	"github.com/Dashulya-coder/CaseTaskNotifier/internal/app"
 	"github.com/Dashulya-coder/CaseTaskNotifier/internal/config"
-	"github.com/Dashulya-coder/CaseTaskNotifier/internal/model"
 	"github.com/Dashulya-coder/CaseTaskNotifier/internal/repository"
 )
 
@@ -28,17 +27,12 @@ func main() {
 
 	subRepo := repository.NewSubscriptionRepository(db)
 
-	err = subRepo.Create(context.Background(), &model.Subscription{
-		Email:            "test@example.com",
-		RepositoryID:     1,
-		ConfirmToken:     "confirm123",
-		UnsubscribeToken: "unsubscribe123",
-	})
+	exists, err := subRepo.ExistsByEmailAndRepo(context.Background(), "test@example.com", 1)
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	log.Println("subscription created")
+	log.Printf("subscription exists: %v\n", exists)
 	
 	log.Println("server started on :" + cfg.Port)
 	if err := http.ListenAndServe(":"+cfg.Port, http.NewServeMux()); err != nil {
