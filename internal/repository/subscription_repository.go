@@ -227,7 +227,47 @@ func (r *subscriptionRepository) DeactivateByToken(ctx context.Context, token st
 }
 
 func (r *subscriptionRepository) GetAllConfirmedActive(ctx context.Context) ([]model.Subscription, error) {
-	return nil, errors.New("not implemented")
+	query := `
+		SELECT id, email, repository_id, confirmed, active, confirm_token, unsubscribe_token, created_at, updated_at
+		FROM subscriptions
+		WHERE confirmed = TRUE AND active = TRUE
+		ORDER BY created_at DESC
+	`
+
+	rows, err := r.db.QueryContext(ctx, query)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var subs []model.Subscription
+
+	for rows.Next() {
+		var sub model.Subscription
+
+		err := rows.Scan(
+			&sub.ID,
+			&sub.Email,
+			&sub.RepositoryID,
+			&sub.Confirmed,
+			&sub.Active,
+			&sub.ConfirmToken,
+			&sub.UnsubscribeToken,
+			&sub.CreatedAt,
+			&sub.UpdatedAt,
+		)
+		if err != nil {
+			return nil, err
+		}
+
+		subs = append(subs, sub)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+
+	return subs, nil
 }
 
 func (r *subscriptionRepository) GetConfirmedActiveByRepo(ctx context.Context, repoID int64) ([]model.Subscription, error) {

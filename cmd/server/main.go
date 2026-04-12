@@ -27,15 +27,15 @@ func main() {
 
 	subRepo := repository.NewSubscriptionRepository(db)
 
-	subs, err := subRepo.GetByEmail(context.Background(), "test@example.com")
+	subs, err := subRepo.GetAllConfirmedActive(context.Background())
 	if err != nil {
 		log.Fatal(err)
 	}
 
 	for _, s := range subs {
-		log.Printf("subscription: %+v\n", s)
+		log.Printf("confirmed active subscription: %+v\n", s)
 	}
-	
+
 	log.Println("server started on :" + cfg.Port)
 	if err := http.ListenAndServe(":"+cfg.Port, http.NewServeMux()); err != nil {
 		log.Fatal(err)
