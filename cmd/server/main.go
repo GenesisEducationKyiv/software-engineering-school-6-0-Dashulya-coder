@@ -27,20 +27,14 @@ func main() {
 
 	subRepo := repository.NewSubscriptionRepository(db)
 
-	err = subRepo.DeactivateByToken(context.Background(), "unsubscribe123")
+	subs, err := subRepo.GetByEmail(context.Background(), "test@example.com")
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	sub, err := subRepo.FindByUnsubscribeToken(context.Background(), "unsubscribe123")
-	if err != nil {
-		log.Fatal(err)
+	for _, s := range subs {
+		log.Printf("subscription: %+v\n", s)
 	}
-	if sub == nil {
-		log.Fatal("subscription not found")
-	}
-
-	log.Printf("after deactivate: %+v\n", *sub)
 	
 	log.Println("server started on :" + cfg.Port)
 	if err := http.ListenAndServe(":"+cfg.Port, http.NewServeMux()); err != nil {
