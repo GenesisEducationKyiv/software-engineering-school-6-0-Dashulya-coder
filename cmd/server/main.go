@@ -54,6 +54,7 @@ func main() {
 		ghClient,
 		smtpMailer,
 		cfg.ScanInterval,
+		cfg.BaseURL,
 	)
 	sc.Start(context.Background())
 
