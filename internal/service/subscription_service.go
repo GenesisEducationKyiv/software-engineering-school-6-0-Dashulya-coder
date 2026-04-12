@@ -24,6 +24,7 @@ var (
 
 type SubscriptionService interface {
 	Subscribe(ctx context.Context, email, repo string) error
+	Confirm(ctx context.Context, token string) error
 }
 
 type subscriptionService struct {
@@ -115,6 +116,29 @@ func (s *subscriptionService) Subscribe(ctx context.Context, email, repo string)
 	confirmLink := fmt.Sprintf("%s/api/confirm/%s", s.baseURL, confirmToken)
 
 	if err := s.mailer.SendConfirmation(email, confirmLink); err != nil {
+		return err
+	}
+
+	return nil
+}
+func (s *subscriptionService) Confirm(ctx context.Context, token string) error {
+	if token == "" {
+		return errors.New("invalid token")
+	}
+
+	sub, err := s.subRepo.FindByConfirmToken(ctx, token)
+	if err != nil {
+		return err
+	}
+	if sub == nil {
+		return errors.New("token not found")
+	}
+
+	if sub.Confirmed {
+		return nil // вже підтверджено — не помилка
+	}
+
+	if err := s.subRepo.ConfirmByToken(ctx, token); err != nil {
 		return err
 	}
 

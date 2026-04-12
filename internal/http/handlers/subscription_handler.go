@@ -73,10 +73,30 @@ func (h *SubscriptionHandler) Subscribe(w http.ResponseWriter, r *http.Request) 
 
 func (h *SubscriptionHandler) Confirm(w http.ResponseWriter, r *http.Request) {
 	token := chi.URLParam(r, "token")
-	_ = token
 
-	writeJSON(w, http.StatusNotImplemented, map[string]string{
-		"message": "not implemented yet",
+	err := h.service.Confirm(r.Context(), token)
+	if err != nil {
+		switch err.Error() {
+		case "invalid token":
+			writeJSON(w, http.StatusBadRequest, map[string]string{
+				"error": err.Error(),
+			})
+			return
+		case "token not found":
+			writeJSON(w, http.StatusNotFound, map[string]string{
+				"error": err.Error(),
+			})
+			return
+		default:
+			writeJSON(w, http.StatusInternalServerError, map[string]string{
+				"error": "internal server error",
+			})
+			return
+		}
+	}
+
+	writeJSON(w, http.StatusOK, map[string]string{
+		"message": "Subscription confirmed successfully",
 	})
 }
 
