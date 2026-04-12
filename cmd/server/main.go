@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"log"
 	"net/http"
 
@@ -11,6 +12,7 @@ import (
 	"github.com/Dashulya-coder/CaseTaskNotifier/internal/http/router"
 	"github.com/Dashulya-coder/CaseTaskNotifier/internal/mailer"
 	"github.com/Dashulya-coder/CaseTaskNotifier/internal/repository"
+	"github.com/Dashulya-coder/CaseTaskNotifier/internal/scanner"
 	"github.com/Dashulya-coder/CaseTaskNotifier/internal/service"
 )
 
@@ -46,13 +48,17 @@ func main() {
 	subHandler := handlers.NewSubscriptionHandler(subService)
 	r := router.New(subHandler)
 
+	sc := scanner.New(
+		subRepo,
+		repoRepo,
+		ghClient,
+		smtpMailer,
+		cfg.ScanInterval,
+	)
+	sc.Start(context.Background())
+
 	log.Println("server started on :" + cfg.Port)
 	if err := http.ListenAndServe(":"+cfg.Port, r); err != nil {
-		log.Fatal(err)
-	}
-	
-	log.Println("server started on :" + cfg.Port)
-	if err := http.ListenAndServe(":"+cfg.Port, http.NewServeMux()); err != nil {
 		log.Fatal(err)
 	}
 }
