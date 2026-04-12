@@ -27,12 +27,12 @@ func main() {
 
 	subRepo := repository.NewSubscriptionRepository(db)
 
-	err = subRepo.ConfirmByToken(context.Background(), "confirm123")
+	err = subRepo.DeactivateByToken(context.Background(), "unsubscribe123")
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	sub, err := subRepo.FindByConfirmToken(context.Background(), "confirm123")
+	sub, err := subRepo.FindByUnsubscribeToken(context.Background(), "unsubscribe123")
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -40,8 +40,8 @@ func main() {
 		log.Fatal("subscription not found")
 	}
 
-	log.Printf("after confirm: %+v\n", *sub)
-
+	log.Printf("after deactivate: %+v\n", *sub)
+	
 	log.Println("server started on :" + cfg.Port)
 	if err := http.ListenAndServe(":"+cfg.Port, http.NewServeMux()); err != nil {
 		log.Fatal(err)
