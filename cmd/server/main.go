@@ -7,6 +7,7 @@ import (
 
 	"github.com/Dashulya-coder/CaseTaskNotifier/internal/app"
 	"github.com/Dashulya-coder/CaseTaskNotifier/internal/config"
+	"github.com/Dashulya-coder/CaseTaskNotifier/internal/model"
 	"github.com/Dashulya-coder/CaseTaskNotifier/internal/repository"
 )
 
@@ -25,27 +26,19 @@ func main() {
 
 	log.Println("database connected successfully")
 
-	repoRepo := repository.NewGitHubRepository(db)
+	subRepo := repository.NewSubscriptionRepository(db)
 
-	err = repoRepo.UpdateLastSeenTag(
-		context.Background(),
-		1,
-		"go1.24.1",
-		"https://github.com/golang/go/releases/tag/go1.24.1",
-	)
+	err = subRepo.Create(context.Background(), &model.Subscription{
+		Email:            "test@example.com",
+		RepositoryID:     1,
+		ConfirmToken:     "confirm123",
+		UnsubscribeToken: "unsubscribe123",
+	})
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	updatedRepo, err := repoRepo.GetByID(context.Background(), 1)
-	if err != nil {
-		log.Fatal(err)
-	}
-	if updatedRepo == nil {
-		log.Fatal("repository not found by id")
-	}
-
-	log.Printf("updated repository: %+v\n", *updatedRepo)
+	log.Println("subscription created")
 	
 	log.Println("server started on :" + cfg.Port)
 	if err := http.ListenAndServe(":"+cfg.Port, http.NewServeMux()); err != nil {

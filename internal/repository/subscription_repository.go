@@ -29,7 +29,31 @@ func NewSubscriptionRepository(db *sql.DB) SubscriptionRepository {
 }
 
 func (r *subscriptionRepository) Create(ctx context.Context, sub *model.Subscription) error {
-	return errors.New("not implemented")
+	query := `
+		INSERT INTO subscriptions (
+			email,
+			repository_id,
+			confirm_token,
+			unsubscribe_token
+		)
+		VALUES ($1, $2, $3, $4)
+		RETURNING id, confirmed, active, created_at, updated_at
+	`
+
+	return r.db.QueryRowContext(
+		ctx,
+		query,
+		sub.Email,
+		sub.RepositoryID,
+		sub.ConfirmToken,
+		sub.UnsubscribeToken,
+	).Scan(
+		&sub.ID,
+		&sub.Confirmed,
+		&sub.Active,
+		&sub.CreatedAt,
+		&sub.UpdatedAt,
+	)
 }
 
 func (r *subscriptionRepository) FindByConfirmToken(ctx context.Context, token string) (*model.Subscription, error) {
