@@ -1,12 +1,13 @@
 package main
 
 import (
+	"context"
 	"log"
 	"net/http"
 
 	"github.com/Dashulya-coder/CaseTaskNotifier/internal/app"
 	"github.com/Dashulya-coder/CaseTaskNotifier/internal/config"
-	"github.com/Dashulya-coder/CaseTaskNotifier/internal/validator"
+	"github.com/Dashulya-coder/CaseTaskNotifier/internal/github"
 )
 
 func main() {
@@ -24,18 +25,20 @@ func main() {
 
 	log.Println("database connected successfully")
 
-	err = validator.ValidateEmail("bad-email")
+	ghClient := github.NewClient(cfg.GithubToken)
+
+	exists, err := ghClient.RepositoryExists(context.Background(), "golang", "go")
 	if err != nil {
 		log.Fatal(err)
 	}
-	log.Println("email valid")
+	log.Printf("repo exists: %v\n", exists)
 
-	err = validator.ValidateRepo("golang/go")
+	tag, url, err := ghClient.GetLatestRelease(context.Background(), "golang", "go")
 	if err != nil {
 		log.Fatal(err)
 	}
-	log.Println("repo valid")
-
+	log.Printf("latest release: tag=%s url=%s\n", tag, url)
+	
 	log.Println("server started on :" + cfg.Port)
 	if err := http.ListenAndServe(":"+cfg.Port, http.NewServeMux()); err != nil {
 		log.Fatal(err)

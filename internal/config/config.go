@@ -8,12 +8,14 @@ import (
 type Config struct {
 	DatabaseURL string
 	Port        string
+	GithubToken string
 }
 
 func Load() *Config {
 	cfg := &Config{
 		DatabaseURL: os.Getenv("DATABASE_URL"),
 		Port:        os.Getenv("PORT"),
+		GithubToken: os.Getenv("GITHUB_TOKEN"),
 	}
 
 	if cfg.DatabaseURL == "" {
