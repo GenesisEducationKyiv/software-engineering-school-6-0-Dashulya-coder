@@ -3,6 +3,7 @@ package repository
 import (
 	"context"
 	"database/sql"
+	"log"
 
 	"github.com/Dashulya-coder/CaseTaskNotifier/internal/model"
 )
@@ -127,7 +128,11 @@ func (r *subscriptionRepository) GetByEmail(ctx context.Context, email string) (
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	defer func() {
+		if err := rows.Close(); err != nil {
+			log.Printf("failed to close rows: %v", err)
+		}
+	}()
 
 	var subs []model.Subscription
 
@@ -237,7 +242,11 @@ func (r *subscriptionRepository) GetAllConfirmedActive(ctx context.Context) ([]m
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	defer func() {
+		if err := rows.Close(); err != nil {
+			log.Printf("failed to close rows: %v", err)
+		}
+	}()
 
 	var subs []model.Subscription
 
@@ -283,7 +292,11 @@ func (r *subscriptionRepository) GetConfirmedActiveByRepo(ctx context.Context, r
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	defer func() {
+		if err := rows.Close(); err != nil {
+			log.Printf("failed to close rows: %v", err)
+		}
+	}()
 
 	var subs []model.Subscription
 

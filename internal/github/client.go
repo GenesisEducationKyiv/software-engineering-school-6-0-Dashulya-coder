@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log"
 	"net/http"
 	"strings"
 	"time"
@@ -26,10 +27,6 @@ type client struct {
 	baseURL    string
 	token      string
 	httpClient *http.Client
-}
-
-type repositoryResponse struct {
-	FullName string `json:"full_name"`
 }
 
 type latestReleaseResponse struct {
@@ -61,7 +58,11 @@ func (c *client) RepositoryExists(ctx context.Context, owner, repo string) (bool
 	if err != nil {
 		return false, err
 	}
-	defer resp.Body.Close()
+	defer func() {
+		if err := resp.Body.Close(); err != nil {
+			log.Printf("failed to close response body: %v", err)
+		}
+	}()
 
 	switch resp.StatusCode {
 	case http.StatusOK:
@@ -92,7 +93,11 @@ func (c *client) GetLatestRelease(ctx context.Context, owner, repo string) (stri
 	if err != nil {
 		return "", "", err
 	}
-	defer resp.Body.Close()
+	defer func() {
+		if err := resp.Body.Close(); err != nil {
+			log.Printf("failed to close response body: %v", err)
+		}
+	}()
 
 	switch resp.StatusCode {
 	case http.StatusOK:
