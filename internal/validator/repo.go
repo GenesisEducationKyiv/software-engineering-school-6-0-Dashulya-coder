@@ -11,7 +11,9 @@ func ValidateRepo(repo string) error {
 	}
 
 	parts := strings.Split(repo, "/")
-	if len(parts) != 2 {
+	const githubRepoPartsCount = 2
+
+	if len(parts) != githubRepoPartsCount {
 		return errors.New("repo must be in format owner/repo")
 	}
 

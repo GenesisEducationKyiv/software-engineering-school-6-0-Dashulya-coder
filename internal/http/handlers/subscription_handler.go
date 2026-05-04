@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"log/slog"
 	"net/http"
 
 	"github.com/go-chi/chi/v5"
@@ -20,9 +21,9 @@ type SubscriptionHandler struct {
 	service service.SubscriptionService
 }
 
-func NewSubscriptionHandler(service service.SubscriptionService) *SubscriptionHandler {
+func NewSubscriptionHandler(subscriptionService service.SubscriptionService) *SubscriptionHandler {
 	return &SubscriptionHandler{
-		service: service,
+		service: subscriptionService,
 	}
 }
 
@@ -164,5 +165,7 @@ func (h *SubscriptionHandler) GetSubscriptions(w http.ResponseWriter, r *http.Re
 func writeJSON(w http.ResponseWriter, status int, payload any) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
-	_ = json.NewEncoder(w).Encode(payload)
+	if err := json.NewEncoder(w).Encode(payload); err != nil {
+		slog.Error("failed to encode response", "error", err)
+	}
 }

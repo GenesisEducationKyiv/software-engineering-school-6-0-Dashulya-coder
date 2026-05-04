@@ -3,7 +3,7 @@ package scanner
 import (
 	"context"
 	"errors"
-	"log"
+	"log/slog"
 	"time"
 
 	"github.com/Dashulya-coder/CaseTaskNotifier/internal/github"
@@ -58,16 +58,15 @@ func (s *Scanner) Start(ctx context.Context) {
 }
 
 func (s *Scanner) run(ctx context.Context) {
-	log.Println("scanner: checking for new releases...")
-
+	slog.Info("scanner: checking for new releases")
 	subs, err := s.subRepo.GetAllConfirmedActive(ctx)
 	if err != nil {
-		log.Println("scanner: get active subscriptions error:", err)
+		slog.Error("scanner: get active subscriptions error", "error", err)
 		return
 	}
 
 	if len(subs) == 0 {
-		log.Println("scanner: no confirmed active subscriptions found")
+		slog.Info("scanner: no confirmed active subscriptions found")
 		return
 	}
 
@@ -76,11 +75,11 @@ func (s *Scanner) run(ctx context.Context) {
 	for repoID, repoSubs := range grouped {
 		repo, err := s.repoRepo.GetByID(ctx, repoID)
 		if err != nil {
-			log.Printf("scanner: get repo by id %d error: %v\n", repoID, err)
+			slog.Error("scanner: get repo by id error", "repo_id", repoID, "error", err)
 			continue
 		}
 		if repo == nil {
-			log.Printf("scanner: repo with id %d not found\n", repoID)
+			slog.Warn("scanner: repo not found", "repo_id", repoID)
 			continue
 		}
 
@@ -88,26 +87,26 @@ func (s *Scanner) run(ctx context.Context) {
 		if err != nil {
 			switch {
 			case errors.Is(err, github.ErrNoReleases):
-				log.Printf("scanner: repo %s has no releases\n", repo.FullName)
+				slog.Info("scanner: repo has no releases", "repo", repo.FullName)
 			case errors.Is(err, github.ErrRateLimited):
-				log.Printf("scanner: rate limited while checking repo %s\n", repo.FullName)
+				slog.Warn("scanner: rate limited while checking repo", "repo", repo.FullName)
 			default:
-				log.Printf("scanner: get latest release for %s error: %v\n", repo.FullName, err)
+				slog.Error("scanner: get latest release error", "repo", repo.FullName, "error", err)
 			}
 			continue
 		}
 
 		if repo.LastSeenTag == nil {
 			if err := s.repoRepo.UpdateLastSeenTag(ctx, repo.ID, tag, releaseURL); err != nil {
-				log.Printf("scanner: update baseline tag for %s error: %v\n", repo.FullName, err)
+				slog.Error("scanner: update baseline tag error", "repo", repo.FullName, "error", err)
 			} else {
-				log.Printf("scanner: baseline tag set for %s -> %s\n", repo.FullName, tag)
+				slog.Info("scanner: baseline tag set", "repo", repo.FullName, "tag", tag)
 			}
 			continue
 		}
 
 		if *repo.LastSeenTag == tag {
-			log.Printf("scanner: no new release for %s\n", repo.FullName)
+			slog.Info("scanner: no new release", "repo", repo.FullName)
 			continue
 		}
 
@@ -121,17 +120,17 @@ func (s *Scanner) run(ctx context.Context) {
 				releaseURL,
 				unsubscribeLink,
 			); err != nil {
-				log.Printf("scanner: send release email to %s failed: %v\n", sub.Email, err)
+				slog.Error("scanner: send release email failed", "email", sub.Email, "error", err)
 				continue
 			}
 		}
 
 		if err := s.repoRepo.UpdateLastSeenTag(ctx, repo.ID, tag, releaseURL); err != nil {
-			log.Printf("scanner: update last_seen_tag for %s error: %v\n", repo.FullName, err)
+			slog.Error("scanner: update last_seen_tag error", "repo", repo.FullName, "error", err)
 			continue
 		}
 
-		log.Printf("scanner: new release processed for %s -> %s\n", repo.FullName, tag)
+		slog.Info("scanner: new release processed", "repo", repo.FullName, "tag", tag)
 	}
 }
 

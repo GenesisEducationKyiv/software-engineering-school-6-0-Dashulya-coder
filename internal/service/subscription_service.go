@@ -29,7 +29,7 @@ type SubscriptionService interface {
 	GetSubscriptionsByEmail(ctx context.Context, email string) ([]SubscriptionView, error)
 }
 
-type subscriptionService struct {
+type SubscriptionServiceImpl struct {
 	subRepo  repository.SubscriptionRepository
 	repoRepo repository.GitHubRepository
 	ghClient github.Client
@@ -49,8 +49,8 @@ func NewSubscriptionService(
 	ghClient github.Client,
 	m mailer.Mailer,
 	baseURL string,
-) SubscriptionService {
-	return &subscriptionService{
+) *SubscriptionServiceImpl {
+	return &SubscriptionServiceImpl{
 		subRepo:  subRepo,
 		repoRepo: repoRepo,
 		ghClient: ghClient,
@@ -59,7 +59,7 @@ func NewSubscriptionService(
 	}
 }
 
-func (s *subscriptionService) Subscribe(ctx context.Context, email, repo string) error {
+func (s *SubscriptionServiceImpl) Subscribe(ctx context.Context, email, repo string) error {
 	if err := validator.ValidateEmail(email); err != nil {
 		return ErrInvalidEmail
 	}
@@ -129,7 +129,8 @@ func (s *subscriptionService) Subscribe(ctx context.Context, email, repo string)
 
 	return nil
 }
-func (s *subscriptionService) Confirm(ctx context.Context, token string) error {
+
+func (s *SubscriptionServiceImpl) Confirm(ctx context.Context, token string) error {
 	if token == "" {
 		return errors.New("invalid token")
 	}
@@ -152,7 +153,8 @@ func (s *subscriptionService) Confirm(ctx context.Context, token string) error {
 
 	return nil
 }
-func (s *subscriptionService) Unsubscribe(ctx context.Context, token string) error {
+
+func (s *SubscriptionServiceImpl) Unsubscribe(ctx context.Context, token string) error {
 	if token == "" {
 		return errors.New("invalid token")
 	}
@@ -175,7 +177,11 @@ func (s *subscriptionService) Unsubscribe(ctx context.Context, token string) err
 
 	return nil
 }
-func (s *subscriptionService) GetSubscriptionsByEmail(ctx context.Context, email string) ([]SubscriptionView, error) {
+
+func (s *SubscriptionServiceImpl) GetSubscriptionsByEmail(
+	ctx context.Context,
+	email string,
+) ([]SubscriptionView, error) {
 	if err := validator.ValidateEmail(email); err != nil {
 		return nil, ErrInvalidEmail
 	}

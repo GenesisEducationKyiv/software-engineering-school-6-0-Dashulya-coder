@@ -2,8 +2,10 @@ package main
 
 import (
 	"context"
-	"log"
+	"log/slog"
 	"net/http"
+	"os"
+	"time"
 
 	"github.com/Dashulya-coder/CaseTaskNotifier/internal/app"
 	"github.com/Dashulya-coder/CaseTaskNotifier/internal/config"
@@ -16,24 +18,29 @@ import (
 	"github.com/Dashulya-coder/CaseTaskNotifier/internal/service"
 )
 
+const readHeaderTimeout = 5 * time.Second
+
 func main() {
 	cfg := config.Load()
 
 	if err := app.RunMigrations(cfg.DatabaseURL); err != nil {
-		log.Fatal(err)
+		slog.Error("migration failed", "error", err)
+		os.Exit(1)
 	}
 
 	db, err := app.ConnectDB(cfg.DatabaseURL)
 	if err != nil {
-		log.Fatal(err)
+		slog.Error("database connection failed", "error", err)
+		os.Exit(1)
 	}
+
 	defer func() {
 		if err := db.Close(); err != nil {
-			log.Printf("failed to close db: %v", err)
+			slog.Error("failed to close db", "error", err)
 		}
 	}()
 
-	log.Println("database connected successfully")
+	slog.Info("database connected successfully")
 
 	ghClient := github.NewClient(cfg.GithubToken)
 	smtpMailer := mailer.NewSMTPMailer(cfg.SMTPHost, cfg.SMTPPort, cfg.SMTPUser, cfg.SMTPPass)
@@ -62,8 +69,16 @@ func main() {
 	)
 	sc.Start(context.Background())
 
-	log.Println("server started on :" + cfg.Port)
-	if err := http.ListenAndServe(":"+cfg.Port, r); err != nil {
-		log.Fatal(err)
+	slog.Info("server started", "port", cfg.Port)
+
+	server := &http.Server{
+		Addr:              ":" + cfg.Port,
+		Handler:           r,
+		ReadHeaderTimeout: readHeaderTimeout,
+	}
+
+	if err := server.ListenAndServe(); err != nil {
+		slog.Error("server failed", "error", err)
+		return
 	}
 }
