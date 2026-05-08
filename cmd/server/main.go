@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"log/slog"
 	"net/http"
 	"os"
@@ -18,20 +19,30 @@ import (
 	"github.com/Dashulya-coder/CaseTaskNotifier/internal/service"
 )
 
-const readHeaderTimeout = 5 * time.Second
+const (
+	readHeaderTimeout = 5 * time.Second
+	readTimeout       = 10 * time.Second
+	writeTimeout      = 10 * time.Second
+	idleTimeout       = 60 * time.Second
+)
 
 func main() {
+	if err := run(); err != nil {
+		slog.Error("application failed", "error", err)
+		os.Exit(1)
+	}
+}
+
+func run() error {
 	cfg := config.Load()
 
 	if err := app.RunMigrations(cfg.DatabaseURL); err != nil {
-		slog.Error("migration failed", "error", err)
-		os.Exit(1)
+		return err
 	}
 
 	db, err := app.ConnectDB(cfg.DatabaseURL)
 	if err != nil {
-		slog.Error("database connection failed", "error", err)
-		os.Exit(1)
+		return err
 	}
 
 	defer func() {
@@ -43,7 +54,13 @@ func main() {
 	slog.Info("database connected successfully")
 
 	ghClient := github.NewClient(cfg.GithubToken)
-	smtpMailer := mailer.NewSMTPMailer(cfg.SMTPHost, cfg.SMTPPort, cfg.SMTPUser, cfg.SMTPPass)
+
+	smtpMailer := mailer.NewSMTPMailer(
+		cfg.SMTPHost,
+		cfg.SMTPPort,
+		cfg.SMTPUser,
+		cfg.SMTPPass,
+	)
 
 	subRepo := repository.NewSubscriptionRepository(db)
 	repoRepo := repository.NewGitHubRepository(db)
@@ -67,6 +84,7 @@ func main() {
 		cfg.ScanInterval,
 		cfg.BaseURL,
 	)
+
 	sc.Start(context.Background())
 
 	slog.Info("server started", "port", cfg.Port)
@@ -75,10 +93,15 @@ func main() {
 		Addr:              ":" + cfg.Port,
 		Handler:           r,
 		ReadHeaderTimeout: readHeaderTimeout,
+		ReadTimeout:       readTimeout,
+		WriteTimeout:      writeTimeout,
+		IdleTimeout:       idleTimeout,
 	}
 
-	if err := server.ListenAndServe(); err != nil {
-		slog.Error("server failed", "error", err)
-		return
+	if err := server.ListenAndServe(); err != nil &&
+		!errors.Is(err, http.ErrServerClosed) {
+		return err
 	}
+
+	return nil
 }

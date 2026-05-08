@@ -3,6 +3,7 @@ package repository
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"log/slog"
 
 	"github.com/Dashulya-coder/CaseTaskNotifier/internal/model"
@@ -84,7 +85,7 @@ func (r *SubscriptionRepositoryImpl) FindByConfirmToken(
 		&sub.UpdatedAt,
 	)
 	if err != nil {
-		if err == sql.ErrNoRows {
+		if errors.Is(err, sql.ErrNoRows) {
 			return nil, nil
 		}
 
@@ -119,7 +120,7 @@ func (r *SubscriptionRepositoryImpl) FindByUnsubscribeToken(
 		&sub.UpdatedAt,
 	)
 	if err != nil {
-		if err == sql.ErrNoRows {
+		if errors.Is(err, sql.ErrNoRows) {
 			return nil, nil
 		}
 
