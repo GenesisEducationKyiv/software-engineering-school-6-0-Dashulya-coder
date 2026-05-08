@@ -24,27 +24,35 @@ type mockSubscriptionRepository struct {
 func (m *mockSubscriptionRepository) Create(ctx context.Context, sub *model.Subscription) error {
 	return m.createFn(ctx, sub)
 }
+
 func (m *mockSubscriptionRepository) FindByConfirmToken(ctx context.Context, token string) (*model.Subscription, error) {
 	return m.findByConfirmTokenFn(ctx, token)
 }
+
 func (m *mockSubscriptionRepository) FindByUnsubscribeToken(ctx context.Context, token string) (*model.Subscription, error) {
 	return m.findByUnsubscribeTokenFn(ctx, token)
 }
+
 func (m *mockSubscriptionRepository) GetByEmail(ctx context.Context, email string) ([]model.Subscription, error) {
 	return m.getByEmailFn(ctx, email)
 }
+
 func (m *mockSubscriptionRepository) ExistsByEmailAndRepo(ctx context.Context, email string, repoID int64) (bool, error) {
 	return m.existsByEmailAndRepoFn(ctx, email, repoID)
 }
+
 func (m *mockSubscriptionRepository) ConfirmByToken(ctx context.Context, token string) error {
 	return m.confirmByTokenFn(ctx, token)
 }
+
 func (m *mockSubscriptionRepository) DeactivateByToken(ctx context.Context, token string) error {
 	return m.deactivateByTokenFn(ctx, token)
 }
+
 func (m *mockSubscriptionRepository) GetAllConfirmedActive(ctx context.Context) ([]model.Subscription, error) {
 	return m.getAllConfirmedActiveFn(ctx)
 }
+
 func (m *mockSubscriptionRepository) GetConfirmedActiveByRepo(ctx context.Context, repoID int64) ([]model.Subscription, error) {
 	return m.getConfirmedActiveByRepoFn(ctx, repoID)
 }
@@ -59,12 +67,15 @@ type mockGitHubRepository struct {
 func (m *mockGitHubRepository) Create(ctx context.Context, repo *model.GitHubRepository) error {
 	return m.createFn(ctx, repo)
 }
+
 func (m *mockGitHubRepository) FindByFullName(ctx context.Context, fullName string) (*model.GitHubRepository, error) {
 	return m.findByFullNameFn(ctx, fullName)
 }
+
 func (m *mockGitHubRepository) GetByID(ctx context.Context, id int64) (*model.GitHubRepository, error) {
 	return m.getByIDFn(ctx, id)
 }
+
 func (m *mockGitHubRepository) UpdateLastSeenTag(ctx context.Context, repoID int64, tag string, releaseURL string) error {
 	return m.updateLastSeenTagFn(ctx, repoID, tag, releaseURL)
 }
@@ -77,6 +88,7 @@ type mockGitHubClient struct {
 func (m *mockGitHubClient) RepositoryExists(ctx context.Context, owner, repo string) (bool, error) {
 	return m.repositoryExistsFn(ctx, owner, repo)
 }
+
 func (m *mockGitHubClient) GetLatestRelease(ctx context.Context, owner, repo string) (string, string, error) {
 	return m.getLatestReleaseFn(ctx, owner, repo)
 }
@@ -89,6 +101,7 @@ type mockMailer struct {
 func (m *mockMailer) SendConfirmation(email, confirmLink string) error {
 	return m.sendConfirmationFn(email, confirmLink)
 }
+
 func (m *mockMailer) SendNewRelease(email, repo, tag, releaseURL, unsubscribeLink string) error {
 	return m.sendNewReleaseFn(email, repo, tag, releaseURL, unsubscribeLink)
 }

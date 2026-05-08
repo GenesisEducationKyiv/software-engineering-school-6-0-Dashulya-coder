@@ -14,15 +14,15 @@ type GitHubRepository interface {
 	UpdateLastSeenTag(ctx context.Context, repoID int64, tag string, releaseURL string) error
 }
 
-type githubRepository struct {
+type GitHubRepositoryImpl struct {
 	db *sql.DB
 }
 
-func NewGitHubRepository(db *sql.DB) GitHubRepository {
-	return &githubRepository{db: db}
+func NewGitHubRepository(db *sql.DB) *GitHubRepositoryImpl {
+	return &GitHubRepositoryImpl{db: db}
 }
 
-func (r *githubRepository) Create(ctx context.Context, repo *model.GitHubRepository) error {
+func (r *GitHubRepositoryImpl) Create(ctx context.Context, repo *model.GitHubRepository) error {
 	query := `
 		INSERT INTO repositories (full_name, owner, name)
 		VALUES ($1, $2, $3)
@@ -42,7 +42,9 @@ func (r *githubRepository) Create(ctx context.Context, repo *model.GitHubReposit
 	)
 }
 
-func (r *githubRepository) FindByFullName(ctx context.Context, fullName string) (*model.GitHubRepository, error) {
+func (r *GitHubRepositoryImpl) FindByFullName(ctx context.Context,
+	fullName string,
+) (*model.GitHubRepository, error) {
 	query := `
 		SELECT id, full_name, owner, name, last_seen_tag, last_release_url, created_at, updated_at
 		FROM repositories
@@ -71,7 +73,7 @@ func (r *githubRepository) FindByFullName(ctx context.Context, fullName string) 
 	return &repo, nil
 }
 
-func (r *githubRepository) GetByID(ctx context.Context, id int64) (*model.GitHubRepository, error) {
+func (r *GitHubRepositoryImpl) GetByID(ctx context.Context, id int64) (*model.GitHubRepository, error) {
 	query := `
 		SELECT id, full_name, owner, name, last_seen_tag, last_release_url, created_at, updated_at
 		FROM repositories
@@ -100,7 +102,12 @@ func (r *githubRepository) GetByID(ctx context.Context, id int64) (*model.GitHub
 	return &repo, nil
 }
 
-func (r *githubRepository) UpdateLastSeenTag(ctx context.Context, repoID int64, tag string, releaseURL string) error {
+func (r *GitHubRepositoryImpl) UpdateLastSeenTag(
+	ctx context.Context,
+	repoID int64,
+	tag string,
+	releaseURL string,
+) error {
 	query := `
 		UPDATE repositories
 		SET last_seen_tag = $1,

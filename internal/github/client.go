@@ -5,10 +5,13 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log/slog"
 	"net/http"
 	"strings"
 	"time"
 )
+
+const githubClientTimeout = 10 * time.Second
 
 var (
 	ErrNotFound         = errors.New("github resource not found")
@@ -19,17 +22,13 @@ var (
 
 type Client interface {
 	RepositoryExists(ctx context.Context, owner, repo string) (bool, error)
-	GetLatestRelease(ctx context.Context, owner, repo string) (string, string, error)
+	GetLatestRelease(ctx context.Context, owner, repo string) (tagName string, htmlURL string, err error)
 }
 
-type client struct {
+type ClientImpl struct {
 	baseURL    string
 	token      string
 	httpClient *http.Client
-}
-
-type repositoryResponse struct {
-	FullName string `json:"full_name"`
 }
 
 type latestReleaseResponse struct {
@@ -37,20 +36,20 @@ type latestReleaseResponse struct {
 	HTMLURL string `json:"html_url"`
 }
 
-func NewClient(token string) Client {
-	return &client{
+func NewClient(token string) *ClientImpl {
+	return &ClientImpl{
 		baseURL: "https://api.github.com",
 		token:   token,
 		httpClient: &http.Client{
-			Timeout: 10 * time.Second,
+			Timeout: githubClientTimeout,
 		},
 	}
 }
 
-func (c *client) RepositoryExists(ctx context.Context, owner, repo string) (bool, error) {
+func (c *ClientImpl) RepositoryExists(ctx context.Context, owner, repo string) (bool, error) {
 	endpoint := fmt.Sprintf("%s/repos/%s/%s", c.baseURL, owner, repo)
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, endpoint, nil)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, endpoint, http.NoBody)
 	if err != nil {
 		return false, err
 	}
@@ -61,7 +60,11 @@ func (c *client) RepositoryExists(ctx context.Context, owner, repo string) (bool
 	if err != nil {
 		return false, err
 	}
-	defer resp.Body.Close()
+	defer func() {
+		if err := resp.Body.Close(); err != nil {
+			slog.Error("failed to close response body", "error", err)
+		}
+	}()
 
 	switch resp.StatusCode {
 	case http.StatusOK:
@@ -78,10 +81,14 @@ func (c *client) RepositoryExists(ctx context.Context, owner, repo string) (bool
 	}
 }
 
-func (c *client) GetLatestRelease(ctx context.Context, owner, repo string) (string, string, error) {
+func (c *ClientImpl) GetLatestRelease(
+	ctx context.Context,
+	owner string,
+	repo string,
+) (tagName, htmlURL string, err error) {
 	endpoint := fmt.Sprintf("%s/repos/%s/%s/releases/latest", c.baseURL, owner, repo)
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, endpoint, nil)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, endpoint, http.NoBody)
 	if err != nil {
 		return "", "", err
 	}
@@ -92,7 +99,11 @@ func (c *client) GetLatestRelease(ctx context.Context, owner, repo string) (stri
 	if err != nil {
 		return "", "", err
 	}
-	defer resp.Body.Close()
+	defer func() {
+		if err := resp.Body.Close(); err != nil {
+			slog.Error("failed to close response body", "error", err)
+		}
+	}()
 
 	switch resp.StatusCode {
 	case http.StatusOK:
@@ -113,7 +124,7 @@ func (c *client) GetLatestRelease(ctx context.Context, owner, repo string) (stri
 	}
 }
 
-func (c *client) setHeaders(req *http.Request) {
+func (c *ClientImpl) setHeaders(req *http.Request) {
 	req.Header.Set("Accept", "application/vnd.github+json")
 	req.Header.Set("X-GitHub-Api-Version", "2022-11-28")
 

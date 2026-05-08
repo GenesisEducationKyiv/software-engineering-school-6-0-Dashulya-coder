@@ -1,0 +1,20 @@
+version: '3'
+includes:
+  ops:
+    taskfile: .ops/Taskfile.yml
+    optional: true
+
+tasks:
+  ops:setup:
+    desc: Sync ops config
+    cmds:
+      - |
+        if [ -d .ops ]; then
+          git -C .ops pull
+        else
+          git clone --branch {{.OPS_BRANCH}} https://github.com/vladyslavpavlenko/ses-6-ops.git .ops
+        fi
+      - mkdir -p .github/workflows
+      - cp .ops/workflows/*.yml .github/workflows/
+    vars:
+      OPS_BRANCH: '{{.OPS_BRANCH | default "main"}}'

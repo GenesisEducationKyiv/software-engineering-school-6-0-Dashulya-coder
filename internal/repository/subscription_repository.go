@@ -3,6 +3,8 @@ package repository
 import (
 	"context"
 	"database/sql"
+	"errors"
+	"log/slog"
 
 	"github.com/Dashulya-coder/CaseTaskNotifier/internal/model"
 )
@@ -19,15 +21,18 @@ type SubscriptionRepository interface {
 	GetConfirmedActiveByRepo(ctx context.Context, repoID int64) ([]model.Subscription, error)
 }
 
-type subscriptionRepository struct {
+type SubscriptionRepositoryImpl struct {
 	db *sql.DB
 }
 
-func NewSubscriptionRepository(db *sql.DB) SubscriptionRepository {
-	return &subscriptionRepository{db: db}
+func NewSubscriptionRepository(db *sql.DB) *SubscriptionRepositoryImpl {
+	return &SubscriptionRepositoryImpl{db: db}
 }
 
-func (r *subscriptionRepository) Create(ctx context.Context, sub *model.Subscription) error {
+func (r *SubscriptionRepositoryImpl) Create(
+	ctx context.Context,
+	sub *model.Subscription,
+) error {
 	query := `
 		INSERT INTO subscriptions (
 			email,
@@ -55,9 +60,13 @@ func (r *subscriptionRepository) Create(ctx context.Context, sub *model.Subscrip
 	)
 }
 
-func (r *subscriptionRepository) FindByConfirmToken(ctx context.Context, token string) (*model.Subscription, error) {
+func (r *SubscriptionRepositoryImpl) FindByConfirmToken(
+	ctx context.Context,
+	token string,
+) (*model.Subscription, error) {
 	query := `
-		SELECT id, email, repository_id, confirmed, active, confirm_token, unsubscribe_token, created_at, updated_at
+		SELECT id, email, repository_id, confirmed, active,
+		       confirm_token, unsubscribe_token, created_at, updated_at
 		FROM subscriptions
 		WHERE confirm_token = $1
 	`
@@ -76,18 +85,23 @@ func (r *subscriptionRepository) FindByConfirmToken(ctx context.Context, token s
 		&sub.UpdatedAt,
 	)
 	if err != nil {
-		if err == sql.ErrNoRows {
+		if errors.Is(err, sql.ErrNoRows) {
 			return nil, nil
 		}
+
 		return nil, err
 	}
 
 	return &sub, nil
 }
 
-func (r *subscriptionRepository) FindByUnsubscribeToken(ctx context.Context, token string) (*model.Subscription, error) {
+func (r *SubscriptionRepositoryImpl) FindByUnsubscribeToken(
+	ctx context.Context,
+	token string,
+) (*model.Subscription, error) {
 	query := `
-		SELECT id, email, repository_id, confirmed, active, confirm_token, unsubscribe_token, created_at, updated_at
+		SELECT id, email, repository_id, confirmed, active,
+		       confirm_token, unsubscribe_token, created_at, updated_at
 		FROM subscriptions
 		WHERE unsubscribe_token = $1
 	`
@@ -106,18 +120,23 @@ func (r *subscriptionRepository) FindByUnsubscribeToken(ctx context.Context, tok
 		&sub.UpdatedAt,
 	)
 	if err != nil {
-		if err == sql.ErrNoRows {
+		if errors.Is(err, sql.ErrNoRows) {
 			return nil, nil
 		}
+
 		return nil, err
 	}
 
 	return &sub, nil
 }
 
-func (r *subscriptionRepository) GetByEmail(ctx context.Context, email string) ([]model.Subscription, error) {
+func (r *SubscriptionRepositoryImpl) GetByEmail(
+	ctx context.Context,
+	email string,
+) ([]model.Subscription, error) {
 	query := `
-		SELECT id, email, repository_id, confirmed, active, confirm_token, unsubscribe_token, created_at, updated_at
+		SELECT id, email, repository_id, confirmed, active,
+		       confirm_token, unsubscribe_token, created_at, updated_at
 		FROM subscriptions
 		WHERE email = $1 AND active = TRUE
 		ORDER BY created_at DESC
@@ -127,7 +146,11 @@ func (r *subscriptionRepository) GetByEmail(ctx context.Context, email string) (
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	defer func() {
+		if err := rows.Close(); err != nil {
+			slog.Error("failed to close rows", "error", err)
+		}
+	}()
 
 	var subs []model.Subscription
 
@@ -159,7 +182,11 @@ func (r *subscriptionRepository) GetByEmail(ctx context.Context, email string) (
 	return subs, nil
 }
 
-func (r *subscriptionRepository) ExistsByEmailAndRepo(ctx context.Context, email string, repoID int64) (bool, error) {
+func (r *SubscriptionRepositoryImpl) ExistsByEmailAndRepo(
+	ctx context.Context,
+	email string,
+	repoID int64,
+) (bool, error) {
 	query := `
 		SELECT EXISTS (
 			SELECT 1
@@ -177,7 +204,10 @@ func (r *subscriptionRepository) ExistsByEmailAndRepo(ctx context.Context, email
 	return exists, nil
 }
 
-func (r *subscriptionRepository) ConfirmByToken(ctx context.Context, token string) error {
+func (r *SubscriptionRepositoryImpl) ConfirmByToken(
+	ctx context.Context,
+	token string,
+) error {
 	query := `
 		UPDATE subscriptions
 		SET confirmed = TRUE,
@@ -194,6 +224,7 @@ func (r *subscriptionRepository) ConfirmByToken(ctx context.Context, token strin
 	if err != nil {
 		return err
 	}
+
 	if rowsAffected == 0 {
 		return sql.ErrNoRows
 	}
@@ -201,7 +232,10 @@ func (r *subscriptionRepository) ConfirmByToken(ctx context.Context, token strin
 	return nil
 }
 
-func (r *subscriptionRepository) DeactivateByToken(ctx context.Context, token string) error {
+func (r *SubscriptionRepositoryImpl) DeactivateByToken(
+	ctx context.Context,
+	token string,
+) error {
 	query := `
 		UPDATE subscriptions
 		SET active = FALSE,
@@ -218,6 +252,7 @@ func (r *subscriptionRepository) DeactivateByToken(ctx context.Context, token st
 	if err != nil {
 		return err
 	}
+
 	if rowsAffected == 0 {
 		return sql.ErrNoRows
 	}
@@ -225,9 +260,12 @@ func (r *subscriptionRepository) DeactivateByToken(ctx context.Context, token st
 	return nil
 }
 
-func (r *subscriptionRepository) GetAllConfirmedActive(ctx context.Context) ([]model.Subscription, error) {
+func (r *SubscriptionRepositoryImpl) GetAllConfirmedActive(
+	ctx context.Context,
+) ([]model.Subscription, error) {
 	query := `
-		SELECT id, email, repository_id, confirmed, active, confirm_token, unsubscribe_token, created_at, updated_at
+		SELECT id, email, repository_id, confirmed, active,
+		       confirm_token, unsubscribe_token, created_at, updated_at
 		FROM subscriptions
 		WHERE confirmed = TRUE AND active = TRUE
 		ORDER BY created_at DESC
@@ -237,7 +275,11 @@ func (r *subscriptionRepository) GetAllConfirmedActive(ctx context.Context) ([]m
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	defer func() {
+		if err := rows.Close(); err != nil {
+			slog.Error("failed to close rows", "error", err)
+		}
+	}()
 
 	var subs []model.Subscription
 
@@ -269,9 +311,13 @@ func (r *subscriptionRepository) GetAllConfirmedActive(ctx context.Context) ([]m
 	return subs, nil
 }
 
-func (r *subscriptionRepository) GetConfirmedActiveByRepo(ctx context.Context, repoID int64) ([]model.Subscription, error) {
+func (r *SubscriptionRepositoryImpl) GetConfirmedActiveByRepo(
+	ctx context.Context,
+	repoID int64,
+) ([]model.Subscription, error) {
 	query := `
-		SELECT id, email, repository_id, confirmed, active, confirm_token, unsubscribe_token, created_at, updated_at
+		SELECT id, email, repository_id, confirmed, active,
+		       confirm_token, unsubscribe_token, created_at, updated_at
 		FROM subscriptions
 		WHERE repository_id = $1
 		  AND confirmed = TRUE
@@ -283,7 +329,11 @@ func (r *subscriptionRepository) GetConfirmedActiveByRepo(ctx context.Context, r
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	defer func() {
+		if err := rows.Close(); err != nil {
+			slog.Error("failed to close rows", "error", err)
+		}
+	}()
 
 	var subs []model.Subscription
 
