@@ -51,28 +51,6 @@ The release scanner (`internal/scanner/scanner.go`) runs as a background gorouti
 
 **Architecture diagram of the Release Scanner:**
 
-```mermaid
-sequenceDiagram
-    participant T as Ticker
-    participant S as Scanner
-    participant DB as PostgreSQL
-    participant GH as GitHub API
-
-    T->>S: tick (SCAN_INTERVAL)
-    S->>DB: GetAllConfirmedActive()
-    DB-->>S: []Subscription
-    S->>S: groupByRepoID()
-
-    loop per repository
-        S->>DB: GetByID(repoID)
-        S->>GH: GET /repos/{owner}/{repo}/releases/latest
-        GH-->>S: tagName, releaseURL
-        alt new release
-            S->>DB: UpdateLastSeenTag()
-        end
-    end
-```
-
 ![Release Scan Flow](../SD/diagrams/diagram-5.png)
 
 **Rate limit exposure:**
