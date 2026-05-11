@@ -9,6 +9,11 @@ import (
 	"github.com/Dashulya-coder/CaseTaskNotifier/internal/model"
 )
 
+// ErrNotFound is returned by repository methods when the requested record does not exist.
+// All implementations must return this error (not sql.ErrNoRows or similar) so callers
+// remain independent of the storage technology.
+var ErrNotFound = errors.New("record not found")
+
 type SubscriptionRepository interface {
 	Create(ctx context.Context, sub *model.Subscription) error
 	FindByConfirmToken(ctx context.Context, token string) (*model.Subscription, error)
@@ -226,7 +231,7 @@ func (r *SubscriptionRepositoryImpl) ConfirmByToken(
 	}
 
 	if rowsAffected == 0 {
-		return sql.ErrNoRows
+		return ErrNotFound
 	}
 
 	return nil
@@ -254,7 +259,7 @@ func (r *SubscriptionRepositoryImpl) DeactivateByToken(
 	}
 
 	if rowsAffected == 0 {
-		return sql.ErrNoRows
+		return ErrNotFound
 	}
 
 	return nil
