@@ -44,7 +44,9 @@ func (h *SubscriptionHandler) Subscribe(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	writeJSON(w, http.StatusOK, map[string]string{"message": "Subscription successful. Confirmation email sent."})
+	writeJSON(w, http.StatusOK, map[string]string{
+		"message": "Subscription successful. Confirmation email sent.",
+	})
 }
 
 func (h *SubscriptionHandler) Confirm(w http.ResponseWriter, r *http.Request) {
