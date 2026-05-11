@@ -17,6 +17,7 @@ import (
 	"github.com/Dashulya-coder/CaseTaskNotifier/internal/repository"
 	"github.com/Dashulya-coder/CaseTaskNotifier/internal/scanner"
 	"github.com/Dashulya-coder/CaseTaskNotifier/internal/service"
+	"github.com/Dashulya-coder/CaseTaskNotifier/internal/urlbuilder"
 )
 
 const (
@@ -44,7 +45,6 @@ func run() error {
 	if err != nil {
 		return err
 	}
-
 	defer func() {
 		if err := db.Close(); err != nil {
 			slog.Error("failed to close db", "error", err)
@@ -53,39 +53,22 @@ func run() error {
 
 	slog.Info("database connected successfully")
 
-	ghClient := github.NewClient(cfg.GithubToken)
+	urls := urlbuilder.New(cfg.BaseURL)
 
-	smtpMailer := mailer.NewSMTPMailer(
-		cfg.SMTPHost,
-		cfg.SMTPPort,
-		cfg.SMTPUser,
-		cfg.SMTPPass,
-	)
+	ghClient := github.NewClient(cfg.GithubToken)
+	smtpMailer := mailer.NewSMTPMailer(cfg.SMTPHost, cfg.SMTPPort, cfg.SMTPUser, cfg.SMTPPass)
 
 	subRepo := repository.NewSubscriptionRepository(db)
 	repoRepo := repository.NewGitHubRepository(db)
 
-	subService := service.NewSubscriptionService(
-		subRepo,
-		repoRepo,
-		ghClient,
-		smtpMailer,
-		cfg.BaseURL,
-	)
+	subService := service.NewSubscriptionService(subRepo, repoRepo, ghClient, smtpMailer, urls)
+	releaseScanner := service.NewReleaseScanner(subRepo, repoRepo, ghClient, smtpMailer, urls)
+
+	sc := scanner.New(releaseScanner, cfg.ScanInterval)
+	sc.Start(context.Background())
 
 	subHandler := handlers.NewSubscriptionHandler(subService)
 	r := router.New(subHandler)
-
-	sc := scanner.New(
-		subRepo,
-		repoRepo,
-		ghClient,
-		smtpMailer,
-		cfg.ScanInterval,
-		cfg.BaseURL,
-	)
-
-	sc.Start(context.Background())
 
 	slog.Info("server started", "port", cfg.Port)
 
@@ -98,8 +81,7 @@ func run() error {
 		IdleTimeout:       idleTimeout,
 	}
 
-	if err := server.ListenAndServe(); err != nil &&
-		!errors.Is(err, http.ErrServerClosed) {
+	if err := server.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
 		return err
 	}
 
