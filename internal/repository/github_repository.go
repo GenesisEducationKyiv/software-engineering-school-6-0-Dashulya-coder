@@ -66,35 +66,13 @@ func (r *GitHubRepositoryImpl) Create(ctx context.Context, repo *model.GitHubRep
 	)
 }
 
-func (r *GitHubRepositoryImpl) FindByFullName(ctx context.Context,
-	fullName string,
-) (*model.GitHubRepository, error) {
+func (r *GitHubRepositoryImpl) FindByFullName(ctx context.Context, fullName string) (*model.GitHubRepository, error) {
 	query := `
 		SELECT id, full_name, owner, name, last_seen_tag, last_release_url, created_at, updated_at
 		FROM repositories
 		WHERE full_name = $1
 	`
-
-	var repo model.GitHubRepository
-
-	err := r.db.QueryRowContext(ctx, query, fullName).Scan(
-		&repo.ID,
-		&repo.FullName,
-		&repo.Owner,
-		&repo.Name,
-		&repo.LastSeenTag,
-		&repo.LastReleaseURL,
-		&repo.CreatedAt,
-		&repo.UpdatedAt,
-	)
-	if err != nil {
-		if err == sql.ErrNoRows {
-			return nil, nil
-		}
-		return nil, err
-	}
-
-	return &repo, nil
+	return scanRepo(r.db.QueryRowContext(ctx, query, fullName))
 }
 
 func (r *GitHubRepositoryImpl) GetByID(ctx context.Context, id int64) (*model.GitHubRepository, error) {
@@ -103,10 +81,12 @@ func (r *GitHubRepositoryImpl) GetByID(ctx context.Context, id int64) (*model.Gi
 		FROM repositories
 		WHERE id = $1
 	`
+	return scanRepo(r.db.QueryRowContext(ctx, query, id))
+}
 
+func scanRepo(row *sql.Row) (*model.GitHubRepository, error) {
 	var repo model.GitHubRepository
-
-	err := r.db.QueryRowContext(ctx, query, id).Scan(
+	err := row.Scan(
 		&repo.ID,
 		&repo.FullName,
 		&repo.Owner,
@@ -122,7 +102,6 @@ func (r *GitHubRepositoryImpl) GetByID(ctx context.Context, id int64) (*model.Gi
 		}
 		return nil, err
 	}
-
 	return &repo, nil
 }
 
