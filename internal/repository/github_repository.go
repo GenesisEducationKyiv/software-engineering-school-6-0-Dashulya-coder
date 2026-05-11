@@ -8,7 +8,7 @@ import (
 )
 
 type GitHubRepository interface {
-	Create(ctx context.Context, repo *model.GitHubRepository) error
+	FindOrCreate(ctx context.Context, owner, name, fullName string) (*model.GitHubRepository, error)
 	FindByFullName(ctx context.Context, fullName string) (*model.GitHubRepository, error)
 	GetByID(ctx context.Context, id int64) (*model.GitHubRepository, error)
 	UpdateLastSeenTag(ctx context.Context, repoID int64, tag string, releaseURL string) error
@@ -20,6 +20,30 @@ type GitHubRepositoryImpl struct {
 
 func NewGitHubRepository(db *sql.DB) *GitHubRepositoryImpl {
 	return &GitHubRepositoryImpl{db: db}
+}
+
+func (r *GitHubRepositoryImpl) FindOrCreate(
+	ctx context.Context,
+	owner, name, fullName string,
+) (*model.GitHubRepository, error) {
+	existing, err := r.FindByFullName(ctx, fullName)
+	if err != nil {
+		return nil, err
+	}
+	if existing != nil {
+		return existing, nil
+	}
+
+	repo := &model.GitHubRepository{
+		FullName: fullName,
+		Owner:    owner,
+		Name:     name,
+	}
+	if err := r.Create(ctx, repo); err != nil {
+		return nil, err
+	}
+
+	return repo, nil
 }
 
 func (r *GitHubRepositoryImpl) Create(ctx context.Context, repo *model.GitHubRepository) error {
@@ -126,7 +150,7 @@ func (r *GitHubRepositoryImpl) UpdateLastSeenTag(
 		return err
 	}
 	if rowsAffected == 0 {
-		return sql.ErrNoRows
+		return ErrNotFound
 	}
 
 	return nil
