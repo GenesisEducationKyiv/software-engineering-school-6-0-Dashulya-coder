@@ -23,3 +23,10 @@ func ValidateRepo(repo string) error {
 
 	return nil
 }
+
+// ParseRepo splits a validated "owner/repo" string into its components.
+// Must only be called after ValidateRepo succeeds.
+func ParseRepo(repo string) (owner, name string) {
+	parts := strings.Split(repo, "/")
+	return parts[0], parts[1]
+}
