@@ -66,7 +66,10 @@ func (r *GitHubRepositoryImpl) Create(ctx context.Context, repo *model.GitHubRep
 	)
 }
 
-func (r *GitHubRepositoryImpl) FindByFullName(ctx context.Context, fullName string) (*model.GitHubRepository, error) {
+func (r *GitHubRepositoryImpl) FindByFullName(
+	ctx context.Context,
+	fullName string,
+) (*model.GitHubRepository, error) {
 	query := `
 		SELECT id, full_name, owner, name, last_seen_tag, last_release_url, created_at, updated_at
 		FROM repositories
