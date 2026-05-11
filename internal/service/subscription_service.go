@@ -3,8 +3,6 @@ package service
 import (
 	"context"
 	"errors"
-	"fmt"
-	"strings"
 
 	"github.com/google/uuid"
 
@@ -12,6 +10,7 @@ import (
 	"github.com/Dashulya-coder/CaseTaskNotifier/internal/mailer"
 	"github.com/Dashulya-coder/CaseTaskNotifier/internal/model"
 	"github.com/Dashulya-coder/CaseTaskNotifier/internal/repository"
+	"github.com/Dashulya-coder/CaseTaskNotifier/internal/urlbuilder"
 	"github.com/Dashulya-coder/CaseTaskNotifier/internal/validator"
 )
 
@@ -20,6 +19,8 @@ var (
 	ErrInvalidRepo       = errors.New("invalid repo format")
 	ErrRepoNotFound      = errors.New("repository not found")
 	ErrAlreadySubscribed = errors.New("email already subscribed to this repository")
+	ErrInvalidToken      = errors.New("invalid token")
+	ErrTokenNotFound     = errors.New("token not found")
 )
 
 type SubscriptionService interface {
@@ -29,13 +30,6 @@ type SubscriptionService interface {
 	GetSubscriptionsByEmail(ctx context.Context, email string) ([]SubscriptionView, error)
 }
 
-type SubscriptionServiceImpl struct {
-	subRepo  repository.SubscriptionRepository
-	repoRepo repository.GitHubRepository
-	ghClient github.Client
-	mailer   mailer.Mailer
-	baseURL  string
-}
 type SubscriptionView struct {
 	Email       string
 	Repo        string
@@ -43,19 +37,27 @@ type SubscriptionView struct {
 	LastSeenTag *string
 }
 
+type SubscriptionServiceImpl struct {
+	subRepo  repository.SubscriptionRepository
+	repoRepo repository.GitHubRepository
+	ghClient github.Client
+	mailer   mailer.Mailer
+	urls     *urlbuilder.Builder
+}
+
 func NewSubscriptionService(
 	subRepo repository.SubscriptionRepository,
 	repoRepo repository.GitHubRepository,
 	ghClient github.Client,
 	m mailer.Mailer,
-	baseURL string,
+	urls *urlbuilder.Builder,
 ) *SubscriptionServiceImpl {
 	return &SubscriptionServiceImpl{
 		subRepo:  subRepo,
 		repoRepo: repoRepo,
 		ghClient: ghClient,
 		mailer:   m,
-		baseURL:  baseURL,
+		urls:     urls,
 	}
 }
 
@@ -68,9 +70,7 @@ func (s *SubscriptionServiceImpl) Subscribe(ctx context.Context, email, repo str
 		return ErrInvalidRepo
 	}
 
-	parts := strings.Split(repo, "/")
-	owner := parts[0]
-	name := parts[1]
+	owner, name := validator.ParseRepo(repo)
 
 	exists, err := s.ghClient.RepositoryExists(ctx, owner, name)
 	if err != nil {
@@ -80,23 +80,9 @@ func (s *SubscriptionServiceImpl) Subscribe(ctx context.Context, email, repo str
 		return ErrRepoNotFound
 	}
 
-	dbRepo, err := s.repoRepo.FindByFullName(ctx, repo)
+	dbRepo, err := s.repoRepo.FindOrCreate(ctx, owner, name, repo)
 	if err != nil {
 		return err
-	}
-
-	if dbRepo == nil {
-		newRepo := &model.GitHubRepository{
-			FullName: repo,
-			Owner:    owner,
-			Name:     name,
-		}
-
-		if err := s.repoRepo.Create(ctx, newRepo); err != nil {
-			return err
-		}
-
-		dbRepo = newRepo
 	}
 
 	existsSub, err := s.subRepo.ExistsByEmailAndRepo(ctx, email, dbRepo.ID)
@@ -107,32 +93,23 @@ func (s *SubscriptionServiceImpl) Subscribe(ctx context.Context, email, repo str
 		return ErrAlreadySubscribed
 	}
 
-	confirmToken := uuid.NewString()
-	unsubscribeToken := uuid.NewString()
-
 	sub := &model.Subscription{
 		Email:            email,
 		RepositoryID:     dbRepo.ID,
-		ConfirmToken:     confirmToken,
-		UnsubscribeToken: unsubscribeToken,
+		ConfirmToken:     uuid.NewString(),
+		UnsubscribeToken: uuid.NewString(),
 	}
 
 	if err := s.subRepo.Create(ctx, sub); err != nil {
 		return err
 	}
 
-	confirmLink := fmt.Sprintf("%s/api/confirm/%s", s.baseURL, confirmToken)
-
-	if err := s.mailer.SendConfirmation(email, confirmLink); err != nil {
-		return err
-	}
-
-	return nil
+	return s.mailer.SendConfirmation(email, s.urls.ConfirmURL(sub.ConfirmToken))
 }
 
 func (s *SubscriptionServiceImpl) Confirm(ctx context.Context, token string) error {
 	if token == "" {
-		return errors.New("invalid token")
+		return ErrInvalidToken
 	}
 
 	sub, err := s.subRepo.FindByConfirmToken(ctx, token)
@@ -140,23 +117,19 @@ func (s *SubscriptionServiceImpl) Confirm(ctx context.Context, token string) err
 		return err
 	}
 	if sub == nil {
-		return errors.New("token not found")
+		return ErrTokenNotFound
 	}
 
 	if sub.Confirmed {
 		return nil
 	}
 
-	if err := s.subRepo.ConfirmByToken(ctx, token); err != nil {
-		return err
-	}
-
-	return nil
+	return s.subRepo.ConfirmByToken(ctx, token)
 }
 
 func (s *SubscriptionServiceImpl) Unsubscribe(ctx context.Context, token string) error {
 	if token == "" {
-		return errors.New("invalid token")
+		return ErrInvalidToken
 	}
 
 	sub, err := s.subRepo.FindByUnsubscribeToken(ctx, token)
@@ -164,18 +137,14 @@ func (s *SubscriptionServiceImpl) Unsubscribe(ctx context.Context, token string)
 		return err
 	}
 	if sub == nil {
-		return errors.New("token not found")
+		return ErrTokenNotFound
 	}
 
 	if !sub.Active {
 		return nil
 	}
 
-	if err := s.subRepo.DeactivateByToken(ctx, token); err != nil {
-		return err
-	}
-
-	return nil
+	return s.subRepo.DeactivateByToken(ctx, token)
 }
 
 func (s *SubscriptionServiceImpl) GetSubscriptionsByEmail(
@@ -212,3 +181,6 @@ func (s *SubscriptionServiceImpl) GetSubscriptionsByEmail(
 
 	return result, nil
 }
+
+// compile-time check that SubscriptionServiceImpl satisfies SubscriptionService.
+var _ SubscriptionService = (*SubscriptionServiceImpl)(nil)
