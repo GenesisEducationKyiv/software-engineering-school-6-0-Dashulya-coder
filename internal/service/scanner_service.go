@@ -21,7 +21,7 @@ type ReleaseScannerImpl struct {
 	repoRepo repository.GitHubRepository
 	ghClient github.Client
 	mailer   mailer.Mailer
-	urls     *urlbuilder.Builder
+	urls     urlbuilder.URLBuilder
 }
 
 func NewReleaseScanner(
@@ -29,7 +29,7 @@ func NewReleaseScanner(
 	repoRepo repository.GitHubRepository,
 	ghClient github.Client,
 	m mailer.Mailer,
-	urls *urlbuilder.Builder,
+	urls urlbuilder.URLBuilder,
 ) *ReleaseScannerImpl {
 	return &ReleaseScannerImpl{
 		subRepo:  subRepo,

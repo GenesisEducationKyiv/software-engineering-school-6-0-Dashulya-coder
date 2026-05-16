@@ -42,7 +42,7 @@ type SubscriptionServiceImpl struct {
 	repoRepo repository.GitHubRepository
 	ghClient github.Client
 	mailer   mailer.Mailer
-	urls     *urlbuilder.Builder
+	urls     urlbuilder.URLBuilder
 }
 
 func NewSubscriptionService(
@@ -50,7 +50,7 @@ func NewSubscriptionService(
 	repoRepo repository.GitHubRepository,
 	ghClient github.Client,
 	m mailer.Mailer,
-	urls *urlbuilder.Builder,
+	urls urlbuilder.URLBuilder,
 ) *SubscriptionServiceImpl {
 	return &SubscriptionServiceImpl{
 		subRepo:  subRepo,
