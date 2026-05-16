@@ -4,8 +4,6 @@ import (
 	"context"
 	"errors"
 
-	"github.com/google/uuid"
-
 	"github.com/Dashulya-coder/CaseTaskNotifier/internal/github"
 	"github.com/Dashulya-coder/CaseTaskNotifier/internal/mailer"
 	"github.com/Dashulya-coder/CaseTaskNotifier/internal/model"
@@ -51,12 +49,17 @@ type SubscriptionView struct {
 	LastSeenTag *string
 }
 
+type TokenGenerator interface {
+	Generate() (string, error)
+}
+
 type SubscriptionServiceImpl struct {
 	subRepo  SubscriptionStore
 	repoRepo RepoStore
 	ghClient github.Client
 	mailer   mailer.Mailer
 	urls     urlbuilder.URLBuilder
+	tokenGen TokenGenerator
 }
 
 func NewSubscriptionService(
@@ -65,6 +68,7 @@ func NewSubscriptionService(
 	ghClient github.Client,
 	m mailer.Mailer,
 	urls urlbuilder.URLBuilder,
+	tokenGen TokenGenerator,
 ) *SubscriptionServiceImpl {
 	return &SubscriptionServiceImpl{
 		subRepo:  subRepo,
@@ -72,6 +76,7 @@ func NewSubscriptionService(
 		ghClient: ghClient,
 		mailer:   m,
 		urls:     urls,
+		tokenGen: tokenGen,
 	}
 }
 
@@ -107,11 +112,21 @@ func (s *SubscriptionServiceImpl) Subscribe(ctx context.Context, email, repo str
 		return ErrAlreadySubscribed
 	}
 
+	confirmToken, err := s.tokenGen.Generate()
+	if err != nil {
+		return err
+	}
+
+	unsubscribeToken, err := s.tokenGen.Generate()
+	if err != nil {
+		return err
+	}
+
 	sub := &Subscription{
 		Email:            email,
 		RepositoryID:     dbRepo.ID,
-		ConfirmToken:     uuid.NewString(),
-		UnsubscribeToken: uuid.NewString(),
+		ConfirmToken:     confirmToken,
+		UnsubscribeToken: unsubscribeToken,
 	}
 
 	if err := s.subRepo.Create(ctx, sub); err != nil {

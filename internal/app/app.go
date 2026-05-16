@@ -16,8 +16,11 @@ import (
 	"github.com/Dashulya-coder/CaseTaskNotifier/internal/repository"
 	"github.com/Dashulya-coder/CaseTaskNotifier/internal/scanner"
 	"github.com/Dashulya-coder/CaseTaskNotifier/internal/subscription"
+	"github.com/Dashulya-coder/CaseTaskNotifier/internal/token"
 	"github.com/Dashulya-coder/CaseTaskNotifier/internal/urlbuilder"
 )
+
+var _ subscription.TokenGenerator = (*token.Generator)(nil)
 
 const (
 	readHeaderTimeout = 5 * time.Second
@@ -53,7 +56,7 @@ func Run() error {
 	subRepo := repository.NewSubscriptionRepository(db)
 	repoRepo := repository.NewGitHubRepository(db)
 
-	subService := subscription.NewSubscriptionService(subRepo, repoRepo, ghClient, smtpMailer, urls)
+	subService := subscription.NewSubscriptionService(subRepo, repoRepo, ghClient, smtpMailer, urls, token.New())
 	poller := release.NewPoller(subRepo, repoRepo, ghClient, smtpMailer, urls)
 
 	sc := scanner.New(poller, cfg.ScanInterval)

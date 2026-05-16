@@ -109,9 +109,21 @@ func newTestURLs() *urlbuilder.Builder {
 	return urlbuilder.New("http://localhost:8080")
 }
 
+type mockTokenGenerator struct {
+	generateFn func() (string, error)
+}
+
+func (m *mockTokenGenerator) Generate() (string, error) {
+	if m.generateFn != nil {
+		return m.generateFn()
+	}
+	return "test-token", nil
+}
+
 var _ SubscriptionStore = (*mockSubscriptionStore)(nil)
 var _ RepoStore = (*mockRepoStore)(nil)
 var _ gh.Client = (*mockGitHubClient)(nil)
+var _ TokenGenerator = (*mockTokenGenerator)(nil)
 
 func TestSubscribe_Success(t *testing.T) {
 	subRepo := &mockSubscriptionStore{
@@ -160,21 +172,21 @@ func TestSubscribe_Success(t *testing.T) {
 		},
 	}
 
-	svc := NewSubscriptionService(subRepo, repoRepo, ghClient, m, newTestURLs())
+	svc := NewSubscriptionService(subRepo, repoRepo, ghClient, m, newTestURLs(), &mockTokenGenerator{})
 	if err := svc.Subscribe(context.Background(), "test@example.com", "golang/go"); err != nil {
 		t.Fatalf("Subscribe() unexpected error: %v", err)
 	}
 }
 
 func TestSubscribe_InvalidEmail(t *testing.T) {
-	svc := NewSubscriptionService(&mockSubscriptionStore{}, &mockRepoStore{}, &mockGitHubClient{}, &mockMailer{}, newTestURLs())
+	svc := NewSubscriptionService(&mockSubscriptionStore{}, &mockRepoStore{}, &mockGitHubClient{}, &mockMailer{}, newTestURLs(), &mockTokenGenerator{})
 	if err := svc.Subscribe(context.Background(), "bad-email", "golang/go"); !errors.Is(err, ErrInvalidEmail) {
 		t.Fatalf("expected ErrInvalidEmail, got %v", err)
 	}
 }
 
 func TestSubscribe_InvalidRepo(t *testing.T) {
-	svc := NewSubscriptionService(&mockSubscriptionStore{}, &mockRepoStore{}, &mockGitHubClient{}, &mockMailer{}, newTestURLs())
+	svc := NewSubscriptionService(&mockSubscriptionStore{}, &mockRepoStore{}, &mockGitHubClient{}, &mockMailer{}, newTestURLs(), &mockTokenGenerator{})
 	if err := svc.Subscribe(context.Background(), "test@example.com", "wrongformat"); !errors.Is(err, ErrInvalidRepo) {
 		t.Fatalf("expected ErrInvalidRepo, got %v", err)
 	}
@@ -184,7 +196,7 @@ func TestSubscribe_RepoNotFound(t *testing.T) {
 	ghClient := &mockGitHubClient{
 		repositoryExistsFn: func(_ context.Context, _, _ string) (bool, error) { return false, nil },
 	}
-	svc := NewSubscriptionService(&mockSubscriptionStore{}, &mockRepoStore{}, ghClient, &mockMailer{}, newTestURLs())
+	svc := NewSubscriptionService(&mockSubscriptionStore{}, &mockRepoStore{}, ghClient, &mockMailer{}, newTestURLs(), &mockTokenGenerator{})
 	if err := svc.Subscribe(context.Background(), "test@example.com", "owner/repo"); !errors.Is(err, ErrRepoNotFound) {
 		t.Fatalf("expected ErrRepoNotFound, got %v", err)
 	}
@@ -211,7 +223,7 @@ func TestSubscribe_AlreadySubscribed(t *testing.T) {
 		repositoryExistsFn: func(_ context.Context, _, _ string) (bool, error) { return true, nil },
 	}
 
-	svc := NewSubscriptionService(subRepo, repoRepo, ghClient, &mockMailer{}, newTestURLs())
+	svc := NewSubscriptionService(subRepo, repoRepo, ghClient, &mockMailer{}, newTestURLs(), &mockTokenGenerator{})
 	if err := svc.Subscribe(context.Background(), "test@example.com", "golang/go"); !errors.Is(err, ErrAlreadySubscribed) {
 		t.Fatalf("expected ErrAlreadySubscribed, got %v", err)
 	}
@@ -230,7 +242,7 @@ func TestConfirm_Success(t *testing.T) {
 		deactivateByTokenFn:      func(_ context.Context, _ string) error { return nil },
 	}
 
-	svc := NewSubscriptionService(subRepo, &mockRepoStore{}, &mockGitHubClient{}, &mockMailer{}, newTestURLs())
+	svc := NewSubscriptionService(subRepo, &mockRepoStore{}, &mockGitHubClient{}, &mockMailer{}, newTestURLs(), &mockTokenGenerator{})
 	if err := svc.Confirm(context.Background(), "confirm-token"); err != nil {
 		t.Fatalf("Confirm() unexpected error: %v", err)
 	}
@@ -249,7 +261,7 @@ func TestUnsubscribe_Success(t *testing.T) {
 		confirmByTokenFn:       func(_ context.Context, _ string) error { return nil },
 	}
 
-	svc := NewSubscriptionService(subRepo, &mockRepoStore{}, &mockGitHubClient{}, &mockMailer{}, newTestURLs())
+	svc := NewSubscriptionService(subRepo, &mockRepoStore{}, &mockGitHubClient{}, &mockMailer{}, newTestURLs(), &mockTokenGenerator{})
 	if err := svc.Unsubscribe(context.Background(), "unsubscribe-token"); err != nil {
 		t.Fatalf("Unsubscribe() unexpected error: %v", err)
 	}
