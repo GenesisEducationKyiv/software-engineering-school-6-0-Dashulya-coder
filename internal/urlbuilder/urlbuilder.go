@@ -2,6 +2,11 @@ package urlbuilder
 
 import "fmt"
 
+type URLBuilder interface {
+	ConfirmURL(token string) string
+	UnsubscribeURL(token string) string
+}
+
 type Builder struct {
 	baseURL string
 }
@@ -17,3 +22,5 @@ func (b *Builder) ConfirmURL(token string) string {
 func (b *Builder) UnsubscribeURL(token string) string {
 	return fmt.Sprintf("%s/api/unsubscribe/%s", b.baseURL, token)
 }
+
+var _ URLBuilder = (*Builder)(nil)
