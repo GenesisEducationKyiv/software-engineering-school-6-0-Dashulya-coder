@@ -1,18 +1,16 @@
-package main
+package app
 
 import (
 	"context"
 	"errors"
 	"log/slog"
 	"net/http"
-	"os"
 	"time"
 
-	"github.com/Dashulya-coder/CaseTaskNotifier/internal/app"
 	"github.com/Dashulya-coder/CaseTaskNotifier/internal/config"
 	"github.com/Dashulya-coder/CaseTaskNotifier/internal/github"
-	"github.com/Dashulya-coder/CaseTaskNotifier/internal/http/handlers"
-	"github.com/Dashulya-coder/CaseTaskNotifier/internal/http/router"
+	httphandlers "github.com/Dashulya-coder/CaseTaskNotifier/internal/http/handlers"
+	httprouter "github.com/Dashulya-coder/CaseTaskNotifier/internal/http/router"
 	"github.com/Dashulya-coder/CaseTaskNotifier/internal/mailer"
 	"github.com/Dashulya-coder/CaseTaskNotifier/internal/release"
 	"github.com/Dashulya-coder/CaseTaskNotifier/internal/repository"
@@ -28,21 +26,14 @@ const (
 	idleTimeout       = 60 * time.Second
 )
 
-func main() {
-	if err := run(); err != nil {
-		slog.Error("application failed", "error", err)
-		os.Exit(1)
-	}
-}
-
-func run() error {
+func Run() error {
 	cfg := config.Load()
 
-	if err := app.RunMigrations(cfg.DatabaseURL); err != nil {
+	if err := RunMigrations(cfg.DatabaseURL); err != nil {
 		return err
 	}
 
-	db, err := app.ConnectDB(cfg.DatabaseURL)
+	db, err := ConnectDB(cfg.DatabaseURL)
 	if err != nil {
 		return err
 	}
@@ -68,8 +59,8 @@ func run() error {
 	sc := scanner.New(poller, cfg.ScanInterval)
 	sc.Start(context.Background())
 
-	subHandler := handlers.NewSubscriptionHandler(subService)
-	r := router.New(subHandler)
+	subHandler := httphandlers.NewSubscriptionHandler(subService)
+	r := httprouter.New(subHandler)
 
 	slog.Info("server started", "port", cfg.Port)
 
