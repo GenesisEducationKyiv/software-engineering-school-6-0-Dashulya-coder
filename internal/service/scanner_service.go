@@ -9,6 +9,7 @@ import (
 	"github.com/Dashulya-coder/CaseTaskNotifier/internal/mailer"
 	"github.com/Dashulya-coder/CaseTaskNotifier/internal/model"
 	"github.com/Dashulya-coder/CaseTaskNotifier/internal/repository"
+	"github.com/Dashulya-coder/CaseTaskNotifier/internal/subscription"
 	"github.com/Dashulya-coder/CaseTaskNotifier/internal/urlbuilder"
 )
 
@@ -59,7 +60,7 @@ func (s *ReleaseScannerImpl) CheckReleases(ctx context.Context) {
 	}
 }
 
-func (s *ReleaseScannerImpl) processRepo(ctx context.Context, repoID int64, subs []model.Subscription) {
+func (s *ReleaseScannerImpl) processRepo(ctx context.Context, repoID int64, subs []subscription.Subscription) {
 	repo, err := s.repoRepo.GetByID(ctx, repoID)
 	if err != nil {
 		slog.Error("scanner: get repo by id error", "repo_id", repoID, "error", err)
@@ -109,7 +110,7 @@ func (s *ReleaseScannerImpl) processRepo(ctx context.Context, repoID int64, subs
 
 func (s *ReleaseScannerImpl) notifySubscribers(
 	repo *model.GitHubRepository,
-	subs []model.Subscription,
+	subs []subscription.Subscription,
 	tag, releaseURL string,
 ) {
 	for _, sub := range subs {
@@ -126,8 +127,8 @@ func (s *ReleaseScannerImpl) notifySubscribers(
 	}
 }
 
-func groupByRepoID(subs []model.Subscription) map[int64][]model.Subscription {
-	grouped := make(map[int64][]model.Subscription)
+func groupByRepoID(subs []subscription.Subscription) map[int64][]subscription.Subscription {
+	grouped := make(map[int64][]subscription.Subscription)
 	for _, sub := range subs {
 		grouped[sub.RepositoryID] = append(grouped[sub.RepositoryID], sub)
 	}

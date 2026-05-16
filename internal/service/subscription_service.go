@@ -8,7 +8,7 @@ import (
 
 	"github.com/Dashulya-coder/CaseTaskNotifier/internal/github"
 	"github.com/Dashulya-coder/CaseTaskNotifier/internal/mailer"
-	"github.com/Dashulya-coder/CaseTaskNotifier/internal/model"
+	"github.com/Dashulya-coder/CaseTaskNotifier/internal/subscription"
 	"github.com/Dashulya-coder/CaseTaskNotifier/internal/repository"
 	"github.com/Dashulya-coder/CaseTaskNotifier/internal/urlbuilder"
 	"github.com/Dashulya-coder/CaseTaskNotifier/internal/validator"
@@ -93,7 +93,7 @@ func (s *SubscriptionServiceImpl) Subscribe(ctx context.Context, email, repo str
 		return ErrAlreadySubscribed
 	}
 
-	sub := &model.Subscription{
+	sub := &subscription.Subscription{
 		Email:            email,
 		RepositoryID:     dbRepo.ID,
 		ConfirmToken:     uuid.NewString(),

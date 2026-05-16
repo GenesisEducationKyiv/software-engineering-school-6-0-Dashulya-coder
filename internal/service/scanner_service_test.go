@@ -7,12 +7,13 @@ import (
 
 	gh "github.com/Dashulya-coder/CaseTaskNotifier/internal/github"
 	"github.com/Dashulya-coder/CaseTaskNotifier/internal/model"
+	"github.com/Dashulya-coder/CaseTaskNotifier/internal/subscription"
 )
 
 func TestReleaseScanner_NoConfirmedActiveSubscriptions(t *testing.T) {
 	subRepo := &mockSubscriptionRepository{
-		getAllConfirmedActiveFn: func(_ context.Context) ([]model.Subscription, error) {
-			return []model.Subscription{}, nil
+		getAllConfirmedActiveFn: func(_ context.Context) ([]subscription.Subscription, error) {
+			return []subscription.Subscription{}, nil
 		},
 	}
 
@@ -40,8 +41,8 @@ func TestReleaseScanner_SameTag_NoEmailSent(t *testing.T) {
 	lastSeen := "v1.0.0"
 
 	subRepo := &mockSubscriptionRepository{
-		getAllConfirmedActiveFn: func(_ context.Context) ([]model.Subscription, error) {
-			return []model.Subscription{
+		getAllConfirmedActiveFn: func(_ context.Context) ([]subscription.Subscription, error) {
+			return []subscription.Subscription{
 				{ID: 1, Email: "test@example.com", RepositoryID: 10, Confirmed: true, Active: true, UnsubscribeToken: "tok"},
 			}, nil
 		},
@@ -82,8 +83,8 @@ func TestReleaseScanner_NewTag_SendsEmailAndUpdatesTag(t *testing.T) {
 	lastSeen := "old-tag"
 
 	subRepo := &mockSubscriptionRepository{
-		getAllConfirmedActiveFn: func(_ context.Context) ([]model.Subscription, error) {
-			return []model.Subscription{
+		getAllConfirmedActiveFn: func(_ context.Context) ([]subscription.Subscription, error) {
+			return []subscription.Subscription{
 				{ID: 1, Email: "a@example.com", RepositoryID: 20, Confirmed: true, Active: true, UnsubscribeToken: "tok1"},
 				{ID: 2, Email: "b@example.com", RepositoryID: 20, Confirmed: true, Active: true, UnsubscribeToken: "tok2"},
 			}, nil
@@ -141,8 +142,8 @@ func TestReleaseScanner_NewTag_SendsEmailAndUpdatesTag(t *testing.T) {
 
 func TestReleaseScanner_FirstSeenRelease_SetsBaselineWithoutEmail(t *testing.T) {
 	subRepo := &mockSubscriptionRepository{
-		getAllConfirmedActiveFn: func(_ context.Context) ([]model.Subscription, error) {
-			return []model.Subscription{
+		getAllConfirmedActiveFn: func(_ context.Context) ([]subscription.Subscription, error) {
+			return []subscription.Subscription{
 				{ID: 1, Email: "test@example.com", RepositoryID: 30, Confirmed: true, Active: true, UnsubscribeToken: "tok"},
 			}, nil
 		},
@@ -190,8 +191,8 @@ func TestReleaseScanner_NoReleases_DoesNotFail(t *testing.T) {
 	lastSeen := "v1.0.0"
 
 	subRepo := &mockSubscriptionRepository{
-		getAllConfirmedActiveFn: func(_ context.Context) ([]model.Subscription, error) {
-			return []model.Subscription{
+		getAllConfirmedActiveFn: func(_ context.Context) ([]subscription.Subscription, error) {
+			return []subscription.Subscription{
 				{ID: 1, Email: "test@example.com", RepositoryID: 40, Confirmed: true, Active: true},
 			}, nil
 		},
@@ -219,8 +220,8 @@ func TestReleaseScanner_NoReleases_DoesNotFail(t *testing.T) {
 
 func TestReleaseScanner_GitHubError_DoesNotFail(t *testing.T) {
 	subRepo := &mockSubscriptionRepository{
-		getAllConfirmedActiveFn: func(_ context.Context) ([]model.Subscription, error) {
-			return []model.Subscription{
+		getAllConfirmedActiveFn: func(_ context.Context) ([]subscription.Subscription, error) {
+			return []subscription.Subscription{
 				{ID: 1, Email: "test@example.com", RepositoryID: 50, Confirmed: true, Active: true},
 			}, nil
 		},

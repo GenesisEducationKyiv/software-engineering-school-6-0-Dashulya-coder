@@ -7,34 +7,35 @@ import (
 
 	gh "github.com/Dashulya-coder/CaseTaskNotifier/internal/github"
 	"github.com/Dashulya-coder/CaseTaskNotifier/internal/model"
+	"github.com/Dashulya-coder/CaseTaskNotifier/internal/subscription"
 	"github.com/Dashulya-coder/CaseTaskNotifier/internal/urlbuilder"
 )
 
 type mockSubscriptionRepository struct {
-	createFn                   func(ctx context.Context, sub *model.Subscription) error
-	findByConfirmTokenFn       func(ctx context.Context, token string) (*model.Subscription, error)
-	findByUnsubscribeTokenFn   func(ctx context.Context, token string) (*model.Subscription, error)
-	getByEmailFn               func(ctx context.Context, email string) ([]model.Subscription, error)
+	createFn                   func(ctx context.Context, sub *subscription.Subscription) error
+	findByConfirmTokenFn       func(ctx context.Context, token string) (*subscription.Subscription, error)
+	findByUnsubscribeTokenFn   func(ctx context.Context, token string) (*subscription.Subscription, error)
+	getByEmailFn               func(ctx context.Context, email string) ([]subscription.Subscription, error)
 	existsByEmailAndRepoFn     func(ctx context.Context, email string, repoID int64) (bool, error)
 	confirmByTokenFn           func(ctx context.Context, token string) error
 	deactivateByTokenFn        func(ctx context.Context, token string) error
-	getAllConfirmedActiveFn     func(ctx context.Context) ([]model.Subscription, error)
-	getConfirmedActiveByRepoFn func(ctx context.Context, repoID int64) ([]model.Subscription, error)
+	getAllConfirmedActiveFn     func(ctx context.Context) ([]subscription.Subscription, error)
+	getConfirmedActiveByRepoFn func(ctx context.Context, repoID int64) ([]subscription.Subscription, error)
 }
 
-func (m *mockSubscriptionRepository) Create(ctx context.Context, sub *model.Subscription) error {
+func (m *mockSubscriptionRepository) Create(ctx context.Context, sub *subscription.Subscription) error {
 	return m.createFn(ctx, sub)
 }
 
-func (m *mockSubscriptionRepository) FindByConfirmToken(ctx context.Context, token string) (*model.Subscription, error) {
+func (m *mockSubscriptionRepository) FindByConfirmToken(ctx context.Context, token string) (*subscription.Subscription, error) {
 	return m.findByConfirmTokenFn(ctx, token)
 }
 
-func (m *mockSubscriptionRepository) FindByUnsubscribeToken(ctx context.Context, token string) (*model.Subscription, error) {
+func (m *mockSubscriptionRepository) FindByUnsubscribeToken(ctx context.Context, token string) (*subscription.Subscription, error) {
 	return m.findByUnsubscribeTokenFn(ctx, token)
 }
 
-func (m *mockSubscriptionRepository) GetByEmail(ctx context.Context, email string) ([]model.Subscription, error) {
+func (m *mockSubscriptionRepository) GetByEmail(ctx context.Context, email string) ([]subscription.Subscription, error) {
 	return m.getByEmailFn(ctx, email)
 }
 
@@ -50,14 +51,14 @@ func (m *mockSubscriptionRepository) DeactivateByToken(ctx context.Context, toke
 	return m.deactivateByTokenFn(ctx, token)
 }
 
-func (m *mockSubscriptionRepository) GetAllConfirmedActive(ctx context.Context) ([]model.Subscription, error) {
+func (m *mockSubscriptionRepository) GetAllConfirmedActive(ctx context.Context) ([]subscription.Subscription, error) {
 	if m.getAllConfirmedActiveFn != nil {
 		return m.getAllConfirmedActiveFn(ctx)
 	}
 	return nil, nil
 }
 
-func (m *mockSubscriptionRepository) GetConfirmedActiveByRepo(ctx context.Context, repoID int64) ([]model.Subscription, error) {
+func (m *mockSubscriptionRepository) GetConfirmedActiveByRepo(ctx context.Context, repoID int64) ([]subscription.Subscription, error) {
 	if m.getConfirmedActiveByRepoFn != nil {
 		return m.getConfirmedActiveByRepoFn(ctx, repoID)
 	}
@@ -148,7 +149,7 @@ func newTestURLs() *urlbuilder.Builder {
 
 func TestSubscribe_Success(t *testing.T) {
 	subRepo := &mockSubscriptionRepository{
-		createFn: func(ctx context.Context, sub *model.Subscription) error {
+		createFn: func(ctx context.Context, sub *subscription.Subscription) error {
 			if sub.Email != "test@example.com" {
 				t.Fatalf("unexpected email: %s", sub.Email)
 			}
@@ -164,13 +165,13 @@ func TestSubscribe_Success(t *testing.T) {
 			return nil
 		},
 		existsByEmailAndRepoFn:     func(_ context.Context, _ string, _ int64) (bool, error) { return false, nil },
-		findByConfirmTokenFn:       func(_ context.Context, _ string) (*model.Subscription, error) { return nil, nil },
-		findByUnsubscribeTokenFn:   func(_ context.Context, _ string) (*model.Subscription, error) { return nil, nil },
-		getByEmailFn:               func(_ context.Context, _ string) ([]model.Subscription, error) { return nil, nil },
+		findByConfirmTokenFn:       func(_ context.Context, _ string) (*subscription.Subscription, error) { return nil, nil },
+		findByUnsubscribeTokenFn:   func(_ context.Context, _ string) (*subscription.Subscription, error) { return nil, nil },
+		getByEmailFn:               func(_ context.Context, _ string) ([]subscription.Subscription, error) { return nil, nil },
 		confirmByTokenFn:           func(_ context.Context, _ string) error { return nil },
 		deactivateByTokenFn:        func(_ context.Context, _ string) error { return nil },
-		getAllConfirmedActiveFn:     func(_ context.Context) ([]model.Subscription, error) { return nil, nil },
-		getConfirmedActiveByRepoFn: func(_ context.Context, _ int64) ([]model.Subscription, error) { return nil, nil },
+		getAllConfirmedActiveFn:     func(_ context.Context) ([]subscription.Subscription, error) { return nil, nil },
+		getConfirmedActiveByRepoFn: func(_ context.Context, _ int64) ([]subscription.Subscription, error) { return nil, nil },
 	}
 
 	repoRepo := &mockGitHubRepository{
@@ -228,14 +229,14 @@ func TestSubscribe_RepoNotFound(t *testing.T) {
 func TestSubscribe_AlreadySubscribed(t *testing.T) {
 	subRepo := &mockSubscriptionRepository{
 		existsByEmailAndRepoFn:     func(_ context.Context, _ string, _ int64) (bool, error) { return true, nil },
-		findByConfirmTokenFn:       func(_ context.Context, _ string) (*model.Subscription, error) { return nil, nil },
-		findByUnsubscribeTokenFn:   func(_ context.Context, _ string) (*model.Subscription, error) { return nil, nil },
-		getByEmailFn:               func(_ context.Context, _ string) ([]model.Subscription, error) { return nil, nil },
-		createFn:                   func(_ context.Context, _ *model.Subscription) error { return nil },
+		findByConfirmTokenFn:       func(_ context.Context, _ string) (*subscription.Subscription, error) { return nil, nil },
+		findByUnsubscribeTokenFn:   func(_ context.Context, _ string) (*subscription.Subscription, error) { return nil, nil },
+		getByEmailFn:               func(_ context.Context, _ string) ([]subscription.Subscription, error) { return nil, nil },
+		createFn:                   func(_ context.Context, _ *subscription.Subscription) error { return nil },
 		confirmByTokenFn:           func(_ context.Context, _ string) error { return nil },
 		deactivateByTokenFn:        func(_ context.Context, _ string) error { return nil },
-		getAllConfirmedActiveFn:     func(_ context.Context) ([]model.Subscription, error) { return nil, nil },
-		getConfirmedActiveByRepoFn: func(_ context.Context, _ int64) ([]model.Subscription, error) { return nil, nil },
+		getAllConfirmedActiveFn:     func(_ context.Context) ([]subscription.Subscription, error) { return nil, nil },
+		getConfirmedActiveByRepoFn: func(_ context.Context, _ int64) ([]subscription.Subscription, error) { return nil, nil },
 	}
 
 	repoRepo := &mockGitHubRepository{
@@ -256,17 +257,17 @@ func TestSubscribe_AlreadySubscribed(t *testing.T) {
 
 func TestConfirm_Success(t *testing.T) {
 	subRepo := &mockSubscriptionRepository{
-		findByConfirmTokenFn: func(_ context.Context, token string) (*model.Subscription, error) {
-			return &model.Subscription{ID: 1, ConfirmToken: token, Confirmed: false}, nil
+		findByConfirmTokenFn: func(_ context.Context, token string) (*subscription.Subscription, error) {
+			return &subscription.Subscription{ID: 1, ConfirmToken: token, Confirmed: false}, nil
 		},
 		confirmByTokenFn:           func(_ context.Context, _ string) error { return nil },
-		findByUnsubscribeTokenFn:   func(_ context.Context, _ string) (*model.Subscription, error) { return nil, nil },
-		getByEmailFn:               func(_ context.Context, _ string) ([]model.Subscription, error) { return nil, nil },
-		createFn:                   func(_ context.Context, _ *model.Subscription) error { return nil },
+		findByUnsubscribeTokenFn:   func(_ context.Context, _ string) (*subscription.Subscription, error) { return nil, nil },
+		getByEmailFn:               func(_ context.Context, _ string) ([]subscription.Subscription, error) { return nil, nil },
+		createFn:                   func(_ context.Context, _ *subscription.Subscription) error { return nil },
 		existsByEmailAndRepoFn:     func(_ context.Context, _ string, _ int64) (bool, error) { return false, nil },
 		deactivateByTokenFn:        func(_ context.Context, _ string) error { return nil },
-		getAllConfirmedActiveFn:     func(_ context.Context) ([]model.Subscription, error) { return nil, nil },
-		getConfirmedActiveByRepoFn: func(_ context.Context, _ int64) ([]model.Subscription, error) { return nil, nil },
+		getAllConfirmedActiveFn:     func(_ context.Context) ([]subscription.Subscription, error) { return nil, nil },
+		getConfirmedActiveByRepoFn: func(_ context.Context, _ int64) ([]subscription.Subscription, error) { return nil, nil },
 	}
 
 	svc := NewSubscriptionService(subRepo, &mockGitHubRepository{}, &mockGitHubClient{}, &mockMailer{}, newTestURLs())
@@ -277,17 +278,17 @@ func TestConfirm_Success(t *testing.T) {
 
 func TestUnsubscribe_Success(t *testing.T) {
 	subRepo := &mockSubscriptionRepository{
-		findByUnsubscribeTokenFn: func(_ context.Context, token string) (*model.Subscription, error) {
-			return &model.Subscription{ID: 1, UnsubscribeToken: token, Active: true}, nil
+		findByUnsubscribeTokenFn: func(_ context.Context, token string) (*subscription.Subscription, error) {
+			return &subscription.Subscription{ID: 1, UnsubscribeToken: token, Active: true}, nil
 		},
 		deactivateByTokenFn:        func(_ context.Context, _ string) error { return nil },
-		findByConfirmTokenFn:       func(_ context.Context, _ string) (*model.Subscription, error) { return nil, nil },
-		getByEmailFn:               func(_ context.Context, _ string) ([]model.Subscription, error) { return nil, nil },
-		createFn:                   func(_ context.Context, _ *model.Subscription) error { return nil },
+		findByConfirmTokenFn:       func(_ context.Context, _ string) (*subscription.Subscription, error) { return nil, nil },
+		getByEmailFn:               func(_ context.Context, _ string) ([]subscription.Subscription, error) { return nil, nil },
+		createFn:                   func(_ context.Context, _ *subscription.Subscription) error { return nil },
 		existsByEmailAndRepoFn:     func(_ context.Context, _ string, _ int64) (bool, error) { return false, nil },
 		confirmByTokenFn:           func(_ context.Context, _ string) error { return nil },
-		getAllConfirmedActiveFn:     func(_ context.Context) ([]model.Subscription, error) { return nil, nil },
-		getConfirmedActiveByRepoFn: func(_ context.Context, _ int64) ([]model.Subscription, error) { return nil, nil },
+		getAllConfirmedActiveFn:     func(_ context.Context) ([]subscription.Subscription, error) { return nil, nil },
+		getConfirmedActiveByRepoFn: func(_ context.Context, _ int64) ([]subscription.Subscription, error) { return nil, nil },
 	}
 
 	svc := NewSubscriptionService(subRepo, &mockGitHubRepository{}, &mockGitHubClient{}, &mockMailer{}, newTestURLs())
