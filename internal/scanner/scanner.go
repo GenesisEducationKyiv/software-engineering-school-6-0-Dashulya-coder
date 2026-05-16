@@ -4,24 +4,24 @@ import (
 	"context"
 	"time"
 
-	"github.com/Dashulya-coder/CaseTaskNotifier/internal/service"
+	"github.com/Dashulya-coder/CaseTaskNotifier/internal/release"
 )
 
 type Scanner struct {
-	service  service.ReleaseScanner
+	poller   release.Poller
 	interval time.Duration
 }
 
-func New(svc service.ReleaseScanner, interval time.Duration) *Scanner {
+func New(p release.Poller, interval time.Duration) *Scanner {
 	return &Scanner{
-		service:  svc,
+		poller:   p,
 		interval: interval,
 	}
 }
 
 func (s *Scanner) Start(ctx context.Context) {
 	go func() {
-		s.service.CheckReleases(ctx)
+		s.poller.Poll(ctx)
 
 		ticker := time.NewTicker(s.interval)
 		defer ticker.Stop()
@@ -29,7 +29,7 @@ func (s *Scanner) Start(ctx context.Context) {
 		for {
 			select {
 			case <-ticker.C:
-				s.service.CheckReleases(ctx)
+				s.poller.Poll(ctx)
 			case <-ctx.Done():
 				return
 			}

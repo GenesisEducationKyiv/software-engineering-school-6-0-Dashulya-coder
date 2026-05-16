@@ -9,14 +9,14 @@ import (
 	"github.com/go-chi/chi/v5"
 
 	"github.com/Dashulya-coder/CaseTaskNotifier/internal/http/dto"
-	"github.com/Dashulya-coder/CaseTaskNotifier/internal/service"
+	"github.com/Dashulya-coder/CaseTaskNotifier/internal/subscription"
 )
 
 type SubscriptionHandler struct {
-	service service.SubscriptionService
+	service subscription.SubscriptionService
 }
 
-func NewSubscriptionHandler(svc service.SubscriptionService) *SubscriptionHandler {
+func NewSubscriptionHandler(svc subscription.SubscriptionService) *SubscriptionHandler {
 	return &SubscriptionHandler{service: svc}
 }
 
@@ -31,12 +31,12 @@ func (h *SubscriptionHandler) Subscribe(w http.ResponseWriter, r *http.Request) 
 	err := h.service.Subscribe(r.Context(), req.Email, req.Repo)
 	if err != nil {
 		switch {
-		case errors.Is(err, service.ErrInvalidEmail),
-			errors.Is(err, service.ErrInvalidRepo):
+		case errors.Is(err, subscription.ErrInvalidEmail),
+			errors.Is(err, subscription.ErrInvalidRepo):
 			writeJSON(w, http.StatusBadRequest, map[string]string{"error": err.Error()})
-		case errors.Is(err, service.ErrRepoNotFound):
+		case errors.Is(err, subscription.ErrRepoNotFound):
 			writeJSON(w, http.StatusNotFound, map[string]string{"error": err.Error()})
-		case errors.Is(err, service.ErrAlreadySubscribed):
+		case errors.Is(err, subscription.ErrAlreadySubscribed):
 			writeJSON(w, http.StatusConflict, map[string]string{"error": err.Error()})
 		default:
 			writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "internal server error"})
@@ -55,9 +55,9 @@ func (h *SubscriptionHandler) Confirm(w http.ResponseWriter, r *http.Request) {
 	err := h.service.Confirm(r.Context(), token)
 	if err != nil {
 		switch {
-		case errors.Is(err, service.ErrInvalidToken):
+		case errors.Is(err, subscription.ErrInvalidToken):
 			writeJSON(w, http.StatusBadRequest, map[string]string{"error": err.Error()})
-		case errors.Is(err, service.ErrTokenNotFound):
+		case errors.Is(err, subscription.ErrTokenNotFound):
 			writeJSON(w, http.StatusNotFound, map[string]string{"error": err.Error()})
 		default:
 			writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "internal server error"})
@@ -74,9 +74,9 @@ func (h *SubscriptionHandler) Unsubscribe(w http.ResponseWriter, r *http.Request
 	err := h.service.Unsubscribe(r.Context(), token)
 	if err != nil {
 		switch {
-		case errors.Is(err, service.ErrInvalidToken):
+		case errors.Is(err, subscription.ErrInvalidToken):
 			writeJSON(w, http.StatusBadRequest, map[string]string{"error": err.Error()})
-		case errors.Is(err, service.ErrTokenNotFound):
+		case errors.Is(err, subscription.ErrTokenNotFound):
 			writeJSON(w, http.StatusNotFound, map[string]string{"error": err.Error()})
 		default:
 			writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "internal server error"})
@@ -93,7 +93,7 @@ func (h *SubscriptionHandler) GetSubscriptions(w http.ResponseWriter, r *http.Re
 	subs, err := h.service.GetSubscriptionsByEmail(r.Context(), email)
 	if err != nil {
 		switch {
-		case errors.Is(err, service.ErrInvalidEmail):
+		case errors.Is(err, subscription.ErrInvalidEmail):
 			writeJSON(w, http.StatusBadRequest, map[string]string{"error": err.Error()})
 		default:
 			writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "internal server error"})

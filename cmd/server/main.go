@@ -14,9 +14,10 @@ import (
 	"github.com/Dashulya-coder/CaseTaskNotifier/internal/http/handlers"
 	"github.com/Dashulya-coder/CaseTaskNotifier/internal/http/router"
 	"github.com/Dashulya-coder/CaseTaskNotifier/internal/mailer"
+	"github.com/Dashulya-coder/CaseTaskNotifier/internal/release"
 	"github.com/Dashulya-coder/CaseTaskNotifier/internal/repository"
 	"github.com/Dashulya-coder/CaseTaskNotifier/internal/scanner"
-	"github.com/Dashulya-coder/CaseTaskNotifier/internal/service"
+	"github.com/Dashulya-coder/CaseTaskNotifier/internal/subscription"
 	"github.com/Dashulya-coder/CaseTaskNotifier/internal/urlbuilder"
 )
 
@@ -61,10 +62,10 @@ func run() error {
 	subRepo := repository.NewSubscriptionRepository(db)
 	repoRepo := repository.NewGitHubRepository(db)
 
-	subService := service.NewSubscriptionService(subRepo, repoRepo, ghClient, smtpMailer, urls)
-	releaseScanner := service.NewReleaseScanner(subRepo, repoRepo, ghClient, smtpMailer, urls)
+	subService := subscription.NewSubscriptionService(subRepo, repoRepo, ghClient, smtpMailer, urls)
+	poller := release.NewPoller(subRepo, repoRepo, ghClient, smtpMailer, urls)
 
-	sc := scanner.New(releaseScanner, cfg.ScanInterval)
+	sc := scanner.New(poller, cfg.ScanInterval)
 	sc.Start(context.Background())
 
 	subHandler := handlers.NewSubscriptionHandler(subService)
