@@ -4,13 +4,13 @@ import (
 	"context"
 	"database/sql"
 
-	"github.com/Dashulya-coder/CaseTaskNotifier/internal/model"
+	"github.com/Dashulya-coder/CaseTaskNotifier/internal/repo"
 )
 
 type GitHubRepository interface {
-	FindOrCreate(ctx context.Context, owner, name, fullName string) (*model.GitHubRepository, error)
-	FindByFullName(ctx context.Context, fullName string) (*model.GitHubRepository, error)
-	GetByID(ctx context.Context, id int64) (*model.GitHubRepository, error)
+	FindOrCreate(ctx context.Context, owner, name, fullName string) (*repo.Repository, error)
+	FindByFullName(ctx context.Context, fullName string) (*repo.Repository, error)
+	GetByID(ctx context.Context, id int64) (*repo.Repository, error)
 	UpdateLastSeenTag(ctx context.Context, repoID int64, tag string, releaseURL string) error
 }
 
@@ -25,7 +25,7 @@ func NewGitHubRepository(db *sql.DB) GitHubRepository {
 func (r *GitHubRepositoryImpl) FindOrCreate(
 	ctx context.Context,
 	owner, name, fullName string,
-) (*model.GitHubRepository, error) {
+) (*repo.Repository, error) {
 	existing, err := r.FindByFullName(ctx, fullName)
 	if err != nil {
 		return nil, err
@@ -34,7 +34,7 @@ func (r *GitHubRepositoryImpl) FindOrCreate(
 		return existing, nil
 	}
 
-	repo := &model.GitHubRepository{
+	repo := &repo.Repository{
 		FullName: fullName,
 		Owner:    owner,
 		Name:     name,
@@ -46,7 +46,7 @@ func (r *GitHubRepositoryImpl) FindOrCreate(
 	return repo, nil
 }
 
-func (r *GitHubRepositoryImpl) Create(ctx context.Context, repo *model.GitHubRepository) error {
+func (r *GitHubRepositoryImpl) Create(ctx context.Context, repo *repo.Repository) error {
 	query := `
 		INSERT INTO repositories (full_name, owner, name)
 		VALUES ($1, $2, $3)
@@ -69,7 +69,7 @@ func (r *GitHubRepositoryImpl) Create(ctx context.Context, repo *model.GitHubRep
 func (r *GitHubRepositoryImpl) FindByFullName(
 	ctx context.Context,
 	fullName string,
-) (*model.GitHubRepository, error) {
+) (*repo.Repository, error) {
 	query := `
 		SELECT id, full_name, owner, name, last_seen_tag, last_release_url, created_at, updated_at
 		FROM repositories
@@ -78,7 +78,7 @@ func (r *GitHubRepositoryImpl) FindByFullName(
 	return scanRepo(r.db.QueryRowContext(ctx, query, fullName))
 }
 
-func (r *GitHubRepositoryImpl) GetByID(ctx context.Context, id int64) (*model.GitHubRepository, error) {
+func (r *GitHubRepositoryImpl) GetByID(ctx context.Context, id int64) (*repo.Repository, error) {
 	query := `
 		SELECT id, full_name, owner, name, last_seen_tag, last_release_url, created_at, updated_at
 		FROM repositories
@@ -87,8 +87,8 @@ func (r *GitHubRepositoryImpl) GetByID(ctx context.Context, id int64) (*model.Gi
 	return scanRepo(r.db.QueryRowContext(ctx, query, id))
 }
 
-func scanRepo(row *sql.Row) (*model.GitHubRepository, error) {
-	var repo model.GitHubRepository
+func scanRepo(row *sql.Row) (*repo.Repository, error) {
+	var repo repo.Repository
 	err := row.Scan(
 		&repo.ID,
 		&repo.FullName,

@@ -7,7 +7,7 @@ import (
 
 	"github.com/Dashulya-coder/CaseTaskNotifier/internal/github"
 	"github.com/Dashulya-coder/CaseTaskNotifier/internal/mailer"
-	"github.com/Dashulya-coder/CaseTaskNotifier/internal/model"
+	"github.com/Dashulya-coder/CaseTaskNotifier/internal/repo"
 	"github.com/Dashulya-coder/CaseTaskNotifier/internal/repository"
 	"github.com/Dashulya-coder/CaseTaskNotifier/internal/subscription"
 	"github.com/Dashulya-coder/CaseTaskNotifier/internal/urlbuilder"
@@ -61,62 +61,62 @@ func (p *PollerImpl) Poll(ctx context.Context) {
 }
 
 func (p *PollerImpl) processRepo(ctx context.Context, repoID int64, subs []subscription.Subscription) {
-	repo, err := p.repoRepo.GetByID(ctx, repoID)
+	r, err := p.repoRepo.GetByID(ctx, repoID)
 	if err != nil {
 		slog.Error("scanner: get repo by id error", "repo_id", repoID, "error", err)
 		return
 	}
-	if repo == nil {
+	if r == nil {
 		slog.Warn("scanner: repo not found", "repo_id", repoID)
 		return
 	}
 
-	tag, releaseURL, err := p.ghClient.GetLatestRelease(ctx, repo.Owner, repo.Name)
+	tag, releaseURL, err := p.ghClient.GetLatestRelease(ctx, r.Owner, r.Name)
 	if err != nil {
 		switch {
 		case errors.Is(err, github.ErrNoReleases):
-			slog.Info("scanner: repo has no releases", "repo", repo.FullName)
+			slog.Info("scanner: repo has no releases", "repo", r.FullName)
 		case errors.Is(err, github.ErrRateLimited):
-			slog.Warn("scanner: rate limited while checking repo", "repo", repo.FullName)
+			slog.Warn("scanner: rate limited while checking repo", "repo", r.FullName)
 		default:
-			slog.Error("scanner: get latest release error", "repo", repo.FullName, "error", err)
+			slog.Error("scanner: get latest release error", "repo", r.FullName, "error", err)
 		}
 		return
 	}
 
-	if repo.LastSeenTag == nil {
-		if err := p.repoRepo.UpdateLastSeenTag(ctx, repo.ID, tag, releaseURL); err != nil {
-			slog.Error("scanner: update baseline tag error", "repo", repo.FullName, "error", err)
+	if r.LastSeenTag == nil {
+		if err := p.repoRepo.UpdateLastSeenTag(ctx, r.ID, tag, releaseURL); err != nil {
+			slog.Error("scanner: update baseline tag error", "repo", r.FullName, "error", err)
 		} else {
-			slog.Info("scanner: baseline tag set", "repo", repo.FullName, "tag", tag)
+			slog.Info("scanner: baseline tag set", "repo", r.FullName, "tag", tag)
 		}
 		return
 	}
 
-	if *repo.LastSeenTag == tag {
-		slog.Info("scanner: no new release", "repo", repo.FullName)
+	if *r.LastSeenTag == tag {
+		slog.Info("scanner: no new release", "repo", r.FullName)
 		return
 	}
 
-	p.notifySubscribers(repo, subs, tag, releaseURL)
+	p.notifySubscribers(r, subs, tag, releaseURL)
 
-	if err := p.repoRepo.UpdateLastSeenTag(ctx, repo.ID, tag, releaseURL); err != nil {
-		slog.Error("scanner: update last_seen_tag error", "repo", repo.FullName, "error", err)
+	if err := p.repoRepo.UpdateLastSeenTag(ctx, r.ID, tag, releaseURL); err != nil {
+		slog.Error("scanner: update last_seen_tag error", "repo", r.FullName, "error", err)
 		return
 	}
 
-	slog.Info("scanner: new release processed", "repo", repo.FullName, "tag", tag)
+	slog.Info("scanner: new release processed", "repo", r.FullName, "tag", tag)
 }
 
 func (p *PollerImpl) notifySubscribers(
-	repo *model.GitHubRepository,
+	r *repo.Repository,
 	subs []subscription.Subscription,
 	tag, releaseURL string,
 ) {
 	for _, sub := range subs {
 		err := p.mailer.SendNewRelease(
 			sub.Email,
-			repo.FullName,
+			r.FullName,
 			tag,
 			releaseURL,
 			p.urls.UnsubscribeURL(sub.UnsubscribeToken),

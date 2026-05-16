@@ -6,7 +6,7 @@ import (
 
 	"github.com/Dashulya-coder/CaseTaskNotifier/internal/github"
 	"github.com/Dashulya-coder/CaseTaskNotifier/internal/mailer"
-	"github.com/Dashulya-coder/CaseTaskNotifier/internal/model"
+	"github.com/Dashulya-coder/CaseTaskNotifier/internal/repo"
 	"github.com/Dashulya-coder/CaseTaskNotifier/internal/urlbuilder"
 	"github.com/Dashulya-coder/CaseTaskNotifier/internal/validator"
 )
@@ -31,8 +31,8 @@ type SubscriptionStore interface {
 }
 
 type RepoStore interface {
-	FindOrCreate(ctx context.Context, owner, name, fullName string) (*model.GitHubRepository, error)
-	GetByID(ctx context.Context, id int64) (*model.GitHubRepository, error)
+	FindOrCreate(ctx context.Context, owner, name, fullName string) (*repo.Repository, error)
+	GetByID(ctx context.Context, id int64) (*repo.Repository, error)
 }
 
 type SubscriptionView struct {

@@ -6,7 +6,7 @@ import (
 	"testing"
 
 	gh "github.com/Dashulya-coder/CaseTaskNotifier/internal/github"
-	"github.com/Dashulya-coder/CaseTaskNotifier/internal/model"
+	"github.com/Dashulya-coder/CaseTaskNotifier/internal/repo"
 	"github.com/Dashulya-coder/CaseTaskNotifier/internal/subscription"
 	"github.com/Dashulya-coder/CaseTaskNotifier/internal/urlbuilder"
 )
@@ -59,19 +59,19 @@ func (m *mockSubscriptionRepository) GetConfirmedActiveByRepo(ctx context.Contex
 }
 
 type mockGitHubRepository struct {
-	getByIDFn           func(ctx context.Context, id int64) (*model.GitHubRepository, error)
+	getByIDFn           func(ctx context.Context, id int64) (*repo.Repository, error)
 	updateLastSeenTagFn func(ctx context.Context, repoID int64, tag string, releaseURL string) error
 }
 
-func (m *mockGitHubRepository) FindOrCreate(_ context.Context, _, _, _ string) (*model.GitHubRepository, error) {
+func (m *mockGitHubRepository) FindOrCreate(_ context.Context, _, _, _ string) (*repo.Repository, error) {
 	return nil, nil
 }
 
-func (m *mockGitHubRepository) FindByFullName(_ context.Context, _ string) (*model.GitHubRepository, error) {
+func (m *mockGitHubRepository) FindByFullName(_ context.Context, _ string) (*repo.Repository, error) {
 	return nil, nil
 }
 
-func (m *mockGitHubRepository) GetByID(ctx context.Context, id int64) (*model.GitHubRepository, error) {
+func (m *mockGitHubRepository) GetByID(ctx context.Context, id int64) (*repo.Repository, error) {
 	if m.getByIDFn != nil {
 		return m.getByIDFn(ctx, id)
 	}
@@ -162,8 +162,8 @@ func TestPoller_SameTag_NoEmailSent(t *testing.T) {
 	}
 
 	repoRepo := &mockGitHubRepository{
-		getByIDFn: func(_ context.Context, _ int64) (*model.GitHubRepository, error) {
-			return &model.GitHubRepository{ID: 10, FullName: "cli/cli", Owner: "cli", Name: "cli", LastSeenTag: &lastSeen}, nil
+		getByIDFn: func(_ context.Context, _ int64) (*repo.Repository, error) {
+			return &repo.Repository{ID: 10, FullName: "cli/cli", Owner: "cli", Name: "cli", LastSeenTag: &lastSeen}, nil
 		},
 		updateLastSeenTagFn: func(_ context.Context, _ int64, _ string, _ string) error {
 			t.Fatal("last seen tag should not be updated when tag did not change")
@@ -206,8 +206,8 @@ func TestPoller_NewTag_SendsEmailAndUpdatesTag(t *testing.T) {
 
 	updated := false
 	repoRepo := &mockGitHubRepository{
-		getByIDFn: func(_ context.Context, _ int64) (*model.GitHubRepository, error) {
-			return &model.GitHubRepository{ID: 20, FullName: "cli/cli", Owner: "cli", Name: "cli", LastSeenTag: &lastSeen}, nil
+		getByIDFn: func(_ context.Context, _ int64) (*repo.Repository, error) {
+			return &repo.Repository{ID: 20, FullName: "cli/cli", Owner: "cli", Name: "cli", LastSeenTag: &lastSeen}, nil
 		},
 		updateLastSeenTagFn: func(_ context.Context, repoID int64, tag, releaseURL string) error {
 			updated = true
@@ -264,8 +264,8 @@ func TestPoller_FirstSeenRelease_SetsBaselineWithoutEmail(t *testing.T) {
 
 	updated := false
 	repoRepo := &mockGitHubRepository{
-		getByIDFn: func(_ context.Context, _ int64) (*model.GitHubRepository, error) {
-			return &model.GitHubRepository{ID: 30, FullName: "cli/cli", Owner: "cli", Name: "cli", LastSeenTag: nil}, nil
+		getByIDFn: func(_ context.Context, _ int64) (*repo.Repository, error) {
+			return &repo.Repository{ID: 30, FullName: "cli/cli", Owner: "cli", Name: "cli", LastSeenTag: nil}, nil
 		},
 		updateLastSeenTagFn: func(_ context.Context, _ int64, tag, _ string) error {
 			updated = true
@@ -312,8 +312,8 @@ func TestPoller_NoReleases_DoesNotFail(t *testing.T) {
 	}
 
 	repoRepo := &mockGitHubRepository{
-		getByIDFn: func(_ context.Context, _ int64) (*model.GitHubRepository, error) {
-			return &model.GitHubRepository{ID: 40, FullName: "golang/go", Owner: "golang", Name: "go", LastSeenTag: &lastSeen}, nil
+		getByIDFn: func(_ context.Context, _ int64) (*repo.Repository, error) {
+			return &repo.Repository{ID: 40, FullName: "golang/go", Owner: "golang", Name: "go", LastSeenTag: &lastSeen}, nil
 		},
 		updateLastSeenTagFn: func(_ context.Context, _ int64, _, _ string) error {
 			t.Fatal("should not update tag when no releases")
@@ -341,8 +341,8 @@ func TestPoller_GitHubError_DoesNotFail(t *testing.T) {
 	}
 
 	repoRepo := &mockGitHubRepository{
-		getByIDFn: func(_ context.Context, _ int64) (*model.GitHubRepository, error) {
-			return &model.GitHubRepository{ID: 50, FullName: "cli/cli", Owner: "cli", Name: "cli"}, nil
+		getByIDFn: func(_ context.Context, _ int64) (*repo.Repository, error) {
+			return &repo.Repository{ID: 50, FullName: "cli/cli", Owner: "cli", Name: "cli"}, nil
 		},
 		updateLastSeenTagFn: func(_ context.Context, _ int64, _, _ string) error {
 			t.Fatal("should not update tag on github error")

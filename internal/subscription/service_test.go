@@ -6,7 +6,7 @@ import (
 	"testing"
 
 	gh "github.com/Dashulya-coder/CaseTaskNotifier/internal/github"
-	"github.com/Dashulya-coder/CaseTaskNotifier/internal/model"
+	"github.com/Dashulya-coder/CaseTaskNotifier/internal/repo"
 	"github.com/Dashulya-coder/CaseTaskNotifier/internal/urlbuilder"
 )
 
@@ -49,18 +49,18 @@ func (m *mockSubscriptionStore) DeactivateByToken(ctx context.Context, token str
 }
 
 type mockRepoStore struct {
-	findOrCreateFn func(ctx context.Context, owner, name, fullName string) (*model.GitHubRepository, error)
-	getByIDFn      func(ctx context.Context, id int64) (*model.GitHubRepository, error)
+	findOrCreateFn func(ctx context.Context, owner, name, fullName string) (*repo.Repository, error)
+	getByIDFn      func(ctx context.Context, id int64) (*repo.Repository, error)
 }
 
-func (m *mockRepoStore) FindOrCreate(ctx context.Context, owner, name, fullName string) (*model.GitHubRepository, error) {
+func (m *mockRepoStore) FindOrCreate(ctx context.Context, owner, name, fullName string) (*repo.Repository, error) {
 	if m.findOrCreateFn != nil {
 		return m.findOrCreateFn(ctx, owner, name, fullName)
 	}
 	return nil, nil
 }
 
-func (m *mockRepoStore) GetByID(ctx context.Context, id int64) (*model.GitHubRepository, error) {
+func (m *mockRepoStore) GetByID(ctx context.Context, id int64) (*repo.Repository, error) {
 	if m.getByIDFn != nil {
 		return m.getByIDFn(ctx, id)
 	}
@@ -151,8 +151,8 @@ func TestSubscribe_Success(t *testing.T) {
 	}
 
 	repoRepo := &mockRepoStore{
-		findOrCreateFn: func(_ context.Context, _, _, _ string) (*model.GitHubRepository, error) {
-			return &model.GitHubRepository{ID: 1, FullName: "golang/go", Owner: "golang", Name: "go"}, nil
+		findOrCreateFn: func(_ context.Context, _, _, _ string) (*repo.Repository, error) {
+			return &repo.Repository{ID: 1, FullName: "golang/go", Owner: "golang", Name: "go"}, nil
 		},
 	}
 
@@ -214,8 +214,8 @@ func TestSubscribe_AlreadySubscribed(t *testing.T) {
 	}
 
 	repoRepo := &mockRepoStore{
-		findOrCreateFn: func(_ context.Context, _, _, _ string) (*model.GitHubRepository, error) {
-			return &model.GitHubRepository{ID: 1, FullName: "golang/go", Owner: "golang", Name: "go"}, nil
+		findOrCreateFn: func(_ context.Context, _, _, _ string) (*repo.Repository, error) {
+			return &repo.Repository{ID: 1, FullName: "golang/go", Owner: "golang", Name: "go"}, nil
 		},
 	}
 
