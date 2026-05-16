@@ -182,5 +182,4 @@ func (s *SubscriptionServiceImpl) GetSubscriptionsByEmail(
 	return result, nil
 }
 
-// compile-time check that SubscriptionServiceImpl satisfies SubscriptionService.
 var _ SubscriptionService = (*SubscriptionServiceImpl)(nil)
