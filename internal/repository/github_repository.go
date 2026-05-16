@@ -18,7 +18,7 @@ type GitHubRepositoryImpl struct {
 	db *sql.DB
 }
 
-func NewGitHubRepository(db *sql.DB) *GitHubRepositoryImpl {
+func NewGitHubRepository(db *sql.DB) GitHubRepository {
 	return &GitHubRepositoryImpl{db: db}
 }
 
@@ -107,6 +107,8 @@ func scanRepo(row *sql.Row) (*model.GitHubRepository, error) {
 	}
 	return &repo, nil
 }
+
+var _ GitHubRepository = (*GitHubRepositoryImpl)(nil)
 
 func (r *GitHubRepositoryImpl) UpdateLastSeenTag(
 	ctx context.Context,
