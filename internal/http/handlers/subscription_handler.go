@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"log/slog"
@@ -12,11 +13,18 @@ import (
 	"github.com/Dashulya-coder/CaseTaskNotifier/internal/subscription"
 )
 
-type SubscriptionHandler struct {
-	service subscription.SubscriptionService
+type subscriptionService interface {
+	Subscribe(ctx context.Context, email, repo string) error
+	Confirm(ctx context.Context, token string) error
+	Unsubscribe(ctx context.Context, token string) error
+	GetSubscriptionsByEmail(ctx context.Context, email string) ([]subscription.SubscriptionView, error)
 }
 
-func NewSubscriptionHandler(svc subscription.SubscriptionService) *SubscriptionHandler {
+type SubscriptionHandler struct {
+	service subscriptionService
+}
+
+func NewSubscriptionHandler(svc subscriptionService) *SubscriptionHandler {
 	return &SubscriptionHandler{service: svc}
 }
 

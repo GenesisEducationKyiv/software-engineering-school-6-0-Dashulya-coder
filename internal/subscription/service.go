@@ -35,13 +35,6 @@ type RepoStore interface {
 	GetByID(ctx context.Context, id int64) (*model.GitHubRepository, error)
 }
 
-type SubscriptionService interface {
-	Subscribe(ctx context.Context, email, repo string) error
-	Confirm(ctx context.Context, token string) error
-	Unsubscribe(ctx context.Context, token string) error
-	GetSubscriptionsByEmail(ctx context.Context, email string) ([]SubscriptionView, error)
-}
-
 type SubscriptionView struct {
 	Email       string
 	Repo        string
@@ -211,4 +204,3 @@ func (s *SubscriptionServiceImpl) GetSubscriptionsByEmail(
 	return result, nil
 }
 
-var _ SubscriptionService = (*SubscriptionServiceImpl)(nil)
