@@ -73,16 +73,16 @@ func NewSubscriptionService(
 	}
 }
 
-func (s *SubscriptionServiceImpl) Subscribe(ctx context.Context, email, repo string) error {
+func (s *SubscriptionServiceImpl) Subscribe(ctx context.Context, email, fullName string) error {
 	if err := validator.ValidateEmail(email); err != nil {
 		return ErrInvalidEmail
 	}
 
-	if err := validator.ValidateRepo(repo); err != nil {
+	if err := validator.ValidateRepo(fullName); err != nil {
 		return ErrInvalidRepo
 	}
 
-	owner, name := validator.ParseRepo(repo)
+	owner, name := validator.ParseRepo(fullName)
 
 	exists, err := s.ghClient.RepositoryExists(ctx, owner, name)
 	if err != nil {
@@ -92,7 +92,7 @@ func (s *SubscriptionServiceImpl) Subscribe(ctx context.Context, email, repo str
 		return ErrRepoNotFound
 	}
 
-	dbRepo, err := s.repoRepo.FindOrCreate(ctx, owner, name, repo)
+	dbRepo, err := s.repoRepo.FindOrCreate(ctx, owner, name, fullName)
 	if err != nil {
 		return err
 	}
@@ -185,22 +185,21 @@ func (s *SubscriptionServiceImpl) GetSubscriptionsByEmail(
 	result := make([]SubscriptionView, 0, len(subs))
 
 	for _, sub := range subs {
-		repo, err := s.repoRepo.GetByID(ctx, sub.RepositoryID)
+		r, err := s.repoRepo.GetByID(ctx, sub.RepositoryID)
 		if err != nil {
 			return nil, err
 		}
-		if repo == nil {
+		if r == nil {
 			continue
 		}
 
 		result = append(result, SubscriptionView{
 			Email:       sub.Email,
-			Repo:        repo.FullName,
+			Repo:        r.FullName,
 			Confirmed:   sub.Confirmed,
-			LastSeenTag: repo.LastSeenTag,
+			LastSeenTag: r.LastSeenTag,
 		})
 	}
 
 	return result, nil
 }
-

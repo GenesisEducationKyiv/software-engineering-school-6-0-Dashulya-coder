@@ -18,7 +18,7 @@ type GitHubRepositoryImpl struct {
 	db *sql.DB
 }
 
-func NewGitHubRepository(db *sql.DB) GitHubRepository {
+func NewGitHubRepository(db *sql.DB) *GitHubRepositoryImpl {
 	return &GitHubRepositoryImpl{db: db}
 }
 
@@ -34,19 +34,19 @@ func (r *GitHubRepositoryImpl) FindOrCreate(
 		return existing, nil
 	}
 
-	repo := &repo.Repository{
+	newRepo := &repo.Repository{
 		FullName: fullName,
 		Owner:    owner,
 		Name:     name,
 	}
-	if err := r.Create(ctx, repo); err != nil {
+	if err := r.Create(ctx, newRepo); err != nil {
 		return nil, err
 	}
 
-	return repo, nil
+	return newRepo, nil
 }
 
-func (r *GitHubRepositoryImpl) Create(ctx context.Context, repo *repo.Repository) error {
+func (r *GitHubRepositoryImpl) Create(ctx context.Context, ghRepo *repo.Repository) error {
 	query := `
 		INSERT INTO repositories (full_name, owner, name)
 		VALUES ($1, $2, $3)
@@ -56,13 +56,13 @@ func (r *GitHubRepositoryImpl) Create(ctx context.Context, repo *repo.Repository
 	return r.db.QueryRowContext(
 		ctx,
 		query,
-		repo.FullName,
-		repo.Owner,
-		repo.Name,
+		ghRepo.FullName,
+		ghRepo.Owner,
+		ghRepo.Name,
 	).Scan(
-		&repo.ID,
-		&repo.CreatedAt,
-		&repo.UpdatedAt,
+		&ghRepo.ID,
+		&ghRepo.CreatedAt,
+		&ghRepo.UpdatedAt,
 	)
 }
 
@@ -88,16 +88,16 @@ func (r *GitHubRepositoryImpl) GetByID(ctx context.Context, id int64) (*repo.Rep
 }
 
 func scanRepo(row *sql.Row) (*repo.Repository, error) {
-	var repo repo.Repository
+	var result repo.Repository
 	err := row.Scan(
-		&repo.ID,
-		&repo.FullName,
-		&repo.Owner,
-		&repo.Name,
-		&repo.LastSeenTag,
-		&repo.LastReleaseURL,
-		&repo.CreatedAt,
-		&repo.UpdatedAt,
+		&result.ID,
+		&result.FullName,
+		&result.Owner,
+		&result.Name,
+		&result.LastSeenTag,
+		&result.LastReleaseURL,
+		&result.CreatedAt,
+		&result.UpdatedAt,
 	)
 	if err != nil {
 		if err == sql.ErrNoRows {
@@ -105,7 +105,7 @@ func scanRepo(row *sql.Row) (*repo.Repository, error) {
 		}
 		return nil, err
 	}
-	return &repo, nil
+	return &result, nil
 }
 
 var _ GitHubRepository = (*GitHubRepositoryImpl)(nil)

@@ -56,7 +56,9 @@ func Run() error {
 	subRepo := repository.NewSubscriptionRepository(db)
 	repoRepo := repository.NewGitHubRepository(db)
 
-	subService := subscription.NewSubscriptionService(subRepo, repoRepo, ghClient, smtpMailer, urls, token.New())
+	subService := subscription.NewSubscriptionService(
+		subRepo, repoRepo, ghClient, smtpMailer, urls, token.New(),
+	)
 	poller := release.NewPoller(subRepo, repoRepo, ghClient, smtpMailer, urls)
 
 	sc := scanner.New(poller, cfg.ScanInterval)
