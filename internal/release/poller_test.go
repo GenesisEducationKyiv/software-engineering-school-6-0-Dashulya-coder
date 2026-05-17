@@ -364,3 +364,118 @@ func TestPoller_GitHubError_DoesNotFail(t *testing.T) {
 		t.Fatalf("expected 0 emails sent, got %d", m.sendNewReleaseCalls)
 	}
 }
+
+func TestPoller_GetAllConfirmedActiveError_DoesNotFail(t *testing.T) {
+	subRepo := &mockSubscriptionRepository{
+		getAllConfirmedActiveFn: func(_ context.Context) ([]subscription.Subscription, error) {
+			return nil, errors.New("db error")
+		},
+	}
+
+	ghClient := &mockGitHubClient{
+		getLatestReleaseFn: func(_ context.Context, _, _ string) (string, string, error) {
+			t.Fatal("github client should not be called on db error")
+			return "", "", nil
+		},
+	}
+
+	m := &mockMailer{}
+	p := NewPoller(subRepo, &mockGitHubRepository{}, ghClient, m, newTestURLs())
+	p.Poll(context.Background())
+
+	if m.sendNewReleaseCalls != 0 {
+		t.Fatalf("expected 0 emails sent, got %d", m.sendNewReleaseCalls)
+	}
+}
+
+func TestPoller_GetByIDError_DoesNotFail(t *testing.T) {
+	subRepo := &mockSubscriptionRepository{
+		getAllConfirmedActiveFn: func(_ context.Context) ([]subscription.Subscription, error) {
+			return []subscription.Subscription{
+				{ID: 1, Email: "test@example.com", RepositoryID: 60, Confirmed: true, Active: true},
+			}, nil
+		},
+	}
+
+	repoRepo := &mockGitHubRepository{
+		getByIDFn: func(_ context.Context, _ int64) (*repo.Repository, error) {
+			return nil, errors.New("db error")
+		},
+		updateLastSeenTagFn: func(_ context.Context, _ int64, _, _ string) error {
+			t.Fatal("should not update tag on repo lookup error")
+			return nil
+		},
+	}
+
+	m := &mockMailer{}
+	p := NewPoller(subRepo, repoRepo, &mockGitHubClient{}, m, newTestURLs())
+	p.Poll(context.Background())
+
+	if m.sendNewReleaseCalls != 0 {
+		t.Fatalf("expected 0 emails sent, got %d", m.sendNewReleaseCalls)
+	}
+}
+
+func TestPoller_RepoNotFound_DoesNotFail(t *testing.T) {
+	subRepo := &mockSubscriptionRepository{
+		getAllConfirmedActiveFn: func(_ context.Context) ([]subscription.Subscription, error) {
+			return []subscription.Subscription{
+				{ID: 1, Email: "test@example.com", RepositoryID: 70, Confirmed: true, Active: true},
+			}, nil
+		},
+	}
+
+	repoRepo := &mockGitHubRepository{
+		getByIDFn: func(_ context.Context, _ int64) (*repo.Repository, error) {
+			return nil, nil
+		},
+		updateLastSeenTagFn: func(_ context.Context, _ int64, _, _ string) error {
+			t.Fatal("should not update tag when repo not found")
+			return nil
+		},
+	}
+
+	m := &mockMailer{}
+	p := NewPoller(subRepo, repoRepo, &mockGitHubClient{}, m, newTestURLs())
+	p.Poll(context.Background())
+
+	if m.sendNewReleaseCalls != 0 {
+		t.Fatalf("expected 0 emails sent, got %d", m.sendNewReleaseCalls)
+	}
+}
+
+func TestPoller_RateLimited_DoesNotFail(t *testing.T) {
+	lastSeen := "v1.0.0"
+
+	subRepo := &mockSubscriptionRepository{
+		getAllConfirmedActiveFn: func(_ context.Context) ([]subscription.Subscription, error) {
+			return []subscription.Subscription{
+				{ID: 1, Email: "test@example.com", RepositoryID: 80, Confirmed: true, Active: true},
+			}, nil
+		},
+	}
+
+	repoRepo := &mockGitHubRepository{
+		getByIDFn: func(_ context.Context, _ int64) (*repo.Repository, error) {
+			return &repo.Repository{ID: 80, FullName: "cli/cli", Owner: "cli", Name: "cli", LastSeenTag: &lastSeen}, nil
+		},
+		updateLastSeenTagFn: func(_ context.Context, _ int64, _, _ string) error {
+			t.Fatal("should not update tag when rate limited")
+			return nil
+		},
+	}
+
+	ghClient := &mockGitHubClient{
+		getLatestReleaseFn: func(_ context.Context, _, _ string) (string, string, error) {
+			return "", "", gh.ErrRateLimited
+		},
+	}
+
+	m := &mockMailer{}
+	p := NewPoller(subRepo, repoRepo, ghClient, m, newTestURLs())
+	p.Poll(context.Background())
+
+	if m.sendNewReleaseCalls != 0 {
+		t.Fatalf("expected 0 emails sent, got %d", m.sendNewReleaseCalls)
+	}
+}
