@@ -229,40 +229,180 @@ func TestSubscribe_AlreadySubscribed(t *testing.T) {
 	}
 }
 
-func TestConfirm_Success(t *testing.T) {
-	subRepo := &mockSubscriptionStore{
-		findByConfirmTokenFn: func(_ context.Context, token string) (*Subscription, error) {
-			return &Subscription{ID: 1, ConfirmToken: token, Confirmed: false}, nil
+func TestConfirm(t *testing.T) {
+	cases := []struct {
+		name        string
+		token       string
+		findResult  *Subscription
+		findErr     error
+		expectedErr error
+	}{
+		{
+			name:        "success",
+			token:       "valid-token",
+			findResult:  &Subscription{ID: 1, ConfirmToken: "valid-token", Confirmed: false},
+			expectedErr: nil,
 		},
-		confirmByTokenFn:         func(_ context.Context, _ string) error { return nil },
-		findByUnsubscribeTokenFn: func(_ context.Context, _ string) (*Subscription, error) { return nil, nil },
-		getByEmailFn:             func(_ context.Context, _ string) ([]Subscription, error) { return nil, nil },
-		createFn:                 func(_ context.Context, _ *Subscription) error { return nil },
-		existsByEmailAndRepoFn:   func(_ context.Context, _ string, _ int64) (bool, error) { return false, nil },
-		deactivateByTokenFn:      func(_ context.Context, _ string) error { return nil },
+		{
+			name:        "empty token",
+			token:       "",
+			expectedErr: ErrInvalidToken,
+		},
+		{
+			name:        "token not found",
+			token:       "unknown-token",
+			findResult:  nil,
+			expectedErr: ErrTokenNotFound,
+		},
+		{
+			name:        "already confirmed",
+			token:       "already-confirmed-token",
+			findResult:  &Subscription{ID: 1, ConfirmToken: "already-confirmed-token", Confirmed: true},
+			expectedErr: nil,
+		},
 	}
 
-	svc := NewSubscriptionService(subRepo, &mockRepoStore{}, &mockGitHubClient{}, &mockMailer{}, newTestURLs(), &mockTokenGenerator{})
-	if err := svc.Confirm(context.Background(), "confirm-token"); err != nil {
-		t.Fatalf("Confirm() unexpected error: %v", err)
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			subRepo := &mockSubscriptionStore{
+				findByConfirmTokenFn:     func(_ context.Context, _ string) (*Subscription, error) { return tc.findResult, tc.findErr },
+				confirmByTokenFn:         func(_ context.Context, _ string) error { return nil },
+				findByUnsubscribeTokenFn: func(_ context.Context, _ string) (*Subscription, error) { return nil, nil },
+				getByEmailFn:             func(_ context.Context, _ string) ([]Subscription, error) { return nil, nil },
+				createFn:                 func(_ context.Context, _ *Subscription) error { return nil },
+				existsByEmailAndRepoFn:   func(_ context.Context, _ string, _ int64) (bool, error) { return false, nil },
+				deactivateByTokenFn:      func(_ context.Context, _ string) error { return nil },
+			}
+
+			svc := NewSubscriptionService(subRepo, &mockRepoStore{}, &mockGitHubClient{}, &mockMailer{}, newTestURLs(), &mockTokenGenerator{})
+			err := svc.Confirm(context.Background(), tc.token)
+			if !errors.Is(err, tc.expectedErr) {
+				t.Fatalf("expected %v, got %v", tc.expectedErr, err)
+			}
+		})
 	}
 }
 
-func TestUnsubscribe_Success(t *testing.T) {
-	subRepo := &mockSubscriptionStore{
-		findByUnsubscribeTokenFn: func(_ context.Context, token string) (*Subscription, error) {
-			return &Subscription{ID: 1, UnsubscribeToken: token, Active: true}, nil
+func TestUnsubscribe(t *testing.T) {
+	cases := []struct {
+		name        string
+		token       string
+		findResult  *Subscription
+		findErr     error
+		expectedErr error
+	}{
+		{
+			name:        "success",
+			token:       "valid-token",
+			findResult:  &Subscription{ID: 1, UnsubscribeToken: "valid-token", Active: true},
+			expectedErr: nil,
 		},
-		deactivateByTokenFn:    func(_ context.Context, _ string) error { return nil },
-		findByConfirmTokenFn:   func(_ context.Context, _ string) (*Subscription, error) { return nil, nil },
-		getByEmailFn:           func(_ context.Context, _ string) ([]Subscription, error) { return nil, nil },
-		createFn:               func(_ context.Context, _ *Subscription) error { return nil },
-		existsByEmailAndRepoFn: func(_ context.Context, _ string, _ int64) (bool, error) { return false, nil },
-		confirmByTokenFn:       func(_ context.Context, _ string) error { return nil },
+		{
+			name:        "empty token",
+			token:       "",
+			expectedErr: ErrInvalidToken,
+		},
+		{
+			name:        "token not found",
+			token:       "unknown-token",
+			findResult:  nil,
+			expectedErr: ErrTokenNotFound,
+		},
+		{
+			name:        "already inactive",
+			token:       "inactive-token",
+			findResult:  &Subscription{ID: 1, UnsubscribeToken: "inactive-token", Active: false},
+			expectedErr: nil,
+		},
 	}
 
-	svc := NewSubscriptionService(subRepo, &mockRepoStore{}, &mockGitHubClient{}, &mockMailer{}, newTestURLs(), &mockTokenGenerator{})
-	if err := svc.Unsubscribe(context.Background(), "unsubscribe-token"); err != nil {
-		t.Fatalf("Unsubscribe() unexpected error: %v", err)
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			subRepo := &mockSubscriptionStore{
+				findByUnsubscribeTokenFn: func(_ context.Context, _ string) (*Subscription, error) {
+					return tc.findResult, tc.findErr
+				},
+				deactivateByTokenFn:    func(_ context.Context, _ string) error { return nil },
+				findByConfirmTokenFn:   func(_ context.Context, _ string) (*Subscription, error) { return nil, nil },
+				getByEmailFn:           func(_ context.Context, _ string) ([]Subscription, error) { return nil, nil },
+				createFn:               func(_ context.Context, _ *Subscription) error { return nil },
+				existsByEmailAndRepoFn: func(_ context.Context, _ string, _ int64) (bool, error) { return false, nil },
+				confirmByTokenFn:       func(_ context.Context, _ string) error { return nil },
+			}
+
+			svc := NewSubscriptionService(subRepo, &mockRepoStore{}, &mockGitHubClient{}, &mockMailer{}, newTestURLs(), &mockTokenGenerator{})
+			err := svc.Unsubscribe(context.Background(), tc.token)
+			if !errors.Is(err, tc.expectedErr) {
+				t.Fatalf("expected %v, got %v", tc.expectedErr, err)
+			}
+		})
+	}
+}
+
+func TestGetSubscriptionsByEmail(t *testing.T) {
+	tag := "v1.0.0"
+
+	cases := []struct {
+		name        string
+		email       string
+		subsResult  []Subscription
+		subsErr     error
+		repoResult  *repo.Repository
+		repoErr     error
+		expectedErr error
+		expectedLen int
+	}{
+		{
+			name:  "success",
+			email: "test@example.com",
+			subsResult: []Subscription{
+				{ID: 1, RepositoryID: 1, Email: "test@example.com", Confirmed: true},
+			},
+			repoResult:  &repo.Repository{ID: 1, FullName: "golang/go", LastSeenTag: &tag},
+			expectedLen: 1,
+		},
+		{
+			name:        "invalid email",
+			email:       "bad-email",
+			expectedErr: ErrInvalidEmail,
+		},
+		{
+			name:  "repo not found",
+			email: "test@example.com",
+			subsResult: []Subscription{
+				{ID: 1, RepositoryID: 99, Email: "test@example.com", Confirmed: true},
+			},
+			repoResult:  nil,
+			expectedLen: 0,
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			subRepo := &mockSubscriptionStore{
+				getByEmailFn:             func(_ context.Context, _ string) ([]Subscription, error) { return tc.subsResult, tc.subsErr },
+				findByConfirmTokenFn:     func(_ context.Context, _ string) (*Subscription, error) { return nil, nil },
+				findByUnsubscribeTokenFn: func(_ context.Context, _ string) (*Subscription, error) { return nil, nil },
+				createFn:                 func(_ context.Context, _ *Subscription) error { return nil },
+				existsByEmailAndRepoFn:   func(_ context.Context, _ string, _ int64) (bool, error) { return false, nil },
+				confirmByTokenFn:         func(_ context.Context, _ string) error { return nil },
+				deactivateByTokenFn:      func(_ context.Context, _ string) error { return nil },
+			}
+
+			repoRepo := &mockRepoStore{
+				getByIDFn: func(_ context.Context, _ int64) (*repo.Repository, error) {
+					return tc.repoResult, tc.repoErr
+				},
+			}
+
+			svc := NewSubscriptionService(subRepo, repoRepo, &mockGitHubClient{}, &mockMailer{}, newTestURLs(), &mockTokenGenerator{})
+			result, err := svc.GetSubscriptionsByEmail(context.Background(), tc.email)
+			if !errors.Is(err, tc.expectedErr) {
+				t.Fatalf("expected error %v, got %v", tc.expectedErr, err)
+			}
+			if len(result) != tc.expectedLen {
+				t.Fatalf("expected %d subscriptions, got %d", tc.expectedLen, len(result))
+			}
+		})
 	}
 }
