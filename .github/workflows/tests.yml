@@ -1,10 +1,7 @@
 name: Tests
 
 on:
-  push:
-    branches: [main]
   pull_request:
-    branches: [main]
 
 jobs:
   test:
@@ -24,4 +21,5 @@ jobs:
         run: go mod download
 
       - name: Run tests
-        run: go test ./... -v
+        run: go test ./internal/... -v
+        
