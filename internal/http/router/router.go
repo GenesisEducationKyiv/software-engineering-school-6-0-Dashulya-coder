@@ -12,6 +12,13 @@ import (
 func New(handler *handlers.SubscriptionHandler) http.Handler {
 	r := chi.NewRouter()
 
+	r.Get("/", func(w http.ResponseWriter, req *http.Request) {
+		http.ServeFile(w, req, "web/index.html")
+	})
+	r.Get("/health", func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	})
+
 	r.Route("/api", func(r chi.Router) {
 		r.Post("/subscribe", handler.Subscribe)
 		r.Get("/confirm/{token}", handler.Confirm)
