@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CaseTaskNotifier</title>
+</head>
+<body>
+    <h1>Subscribe to GitHub Release Notifications</h1>
+    <form id="subscribe-form">
+        <div>
+            <label for="email">Email</label><br>
+            <input type="email" id="email" data-testid="email-input"
+                   placeholder="you@example.com" required>
+        </div>
+        <br>
+        <div>
+            <label for="repo">Repository (owner/repo)</label><br>
+            <input type="text" id="repo" data-testid="repo-input"
+                   placeholder="owner/repo" required>
+        </div>
+        <br>
+        <button type="submit" data-testid="submit-btn">Subscribe</button>
+    </form>
+    <div data-testid="alert" id="alert" role="alert" aria-live="polite"></div>
+
+    <script>
+        const form = document.getElementById('subscribe-form');
+        const emailInput = document.getElementById('email');
+        const repoInput = document.getElementById('repo');
+        const submitBtn = document.querySelector('[data-testid="submit-btn"]');
+        const alertDiv = document.getElementById('alert');
+
+        form.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            submitBtn.disabled = true;
+            alertDiv.textContent = '';
+
+            try {
+                const resp = await fetch('/api/subscribe', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        email: emailInput.value,
+                        repo: repoInput.value,
+                    }),
+                });
+
+                if (resp.ok) {
+                    alertDiv.textContent = 'Subscription successful. Confirmation email sent.';
+                    emailInput.value = '';
+                    repoInput.value = '';
+                } else if (resp.status === 409) {
+                    alertDiv.textContent = 'You are already subscribed to this repository.';
+                } else if (resp.status === 404) {
+                    alertDiv.textContent = 'Repository not found on GitHub.';
+                } else {
+                    alertDiv.textContent = 'Something went wrong. Please try again.';
+                }
+            } catch (_err) {
+                alertDiv.textContent = 'Network error. Please check your connection.';
+            } finally {
+                submitBtn.disabled = false;
+            }
+        });
+    </script>
+</body>
+</html>
