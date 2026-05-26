@@ -6,19 +6,24 @@ import (
 	"errors"
 	"log/slog"
 
-	"github.com/Dashulya-coder/CaseTaskNotifier/internal/model"
+	"github.com/Dashulya-coder/CaseTaskNotifier/internal/subscription"
 )
 
+// ErrNotFound is returned by repository methods when the requested record does not exist.
+// All implementations must return this error (not sql.ErrNoRows or similar) so callers
+// remain independent of the storage technology.
+var ErrNotFound = errors.New("record not found")
+
 type SubscriptionRepository interface {
-	Create(ctx context.Context, sub *model.Subscription) error
-	FindByConfirmToken(ctx context.Context, token string) (*model.Subscription, error)
-	FindByUnsubscribeToken(ctx context.Context, token string) (*model.Subscription, error)
-	GetByEmail(ctx context.Context, email string) ([]model.Subscription, error)
+	Create(ctx context.Context, sub *subscription.Subscription) error
+	FindByConfirmToken(ctx context.Context, token string) (*subscription.Subscription, error)
+	FindByUnsubscribeToken(ctx context.Context, token string) (*subscription.Subscription, error)
+	GetByEmail(ctx context.Context, email string) ([]subscription.Subscription, error)
 	ExistsByEmailAndRepo(ctx context.Context, email string, repoID int64) (bool, error)
 	ConfirmByToken(ctx context.Context, token string) error
 	DeactivateByToken(ctx context.Context, token string) error
-	GetAllConfirmedActive(ctx context.Context) ([]model.Subscription, error)
-	GetConfirmedActiveByRepo(ctx context.Context, repoID int64) ([]model.Subscription, error)
+	GetAllConfirmedActive(ctx context.Context) ([]subscription.Subscription, error)
+	GetConfirmedActiveByRepo(ctx context.Context, repoID int64) ([]subscription.Subscription, error)
 }
 
 type SubscriptionRepositoryImpl struct {
@@ -31,7 +36,7 @@ func NewSubscriptionRepository(db *sql.DB) *SubscriptionRepositoryImpl {
 
 func (r *SubscriptionRepositoryImpl) Create(
 	ctx context.Context,
-	sub *model.Subscription,
+	sub *subscription.Subscription,
 ) error {
 	query := `
 		INSERT INTO subscriptions (
@@ -63,7 +68,7 @@ func (r *SubscriptionRepositoryImpl) Create(
 func (r *SubscriptionRepositoryImpl) FindByConfirmToken(
 	ctx context.Context,
 	token string,
-) (*model.Subscription, error) {
+) (*subscription.Subscription, error) {
 	query := `
 		SELECT id, email, repository_id, confirmed, active,
 		       confirm_token, unsubscribe_token, created_at, updated_at
@@ -71,7 +76,7 @@ func (r *SubscriptionRepositoryImpl) FindByConfirmToken(
 		WHERE confirm_token = $1
 	`
 
-	var sub model.Subscription
+	var sub subscription.Subscription
 
 	err := r.db.QueryRowContext(ctx, query, token).Scan(
 		&sub.ID,
@@ -98,7 +103,7 @@ func (r *SubscriptionRepositoryImpl) FindByConfirmToken(
 func (r *SubscriptionRepositoryImpl) FindByUnsubscribeToken(
 	ctx context.Context,
 	token string,
-) (*model.Subscription, error) {
+) (*subscription.Subscription, error) {
 	query := `
 		SELECT id, email, repository_id, confirmed, active,
 		       confirm_token, unsubscribe_token, created_at, updated_at
@@ -106,7 +111,7 @@ func (r *SubscriptionRepositoryImpl) FindByUnsubscribeToken(
 		WHERE unsubscribe_token = $1
 	`
 
-	var sub model.Subscription
+	var sub subscription.Subscription
 
 	err := r.db.QueryRowContext(ctx, query, token).Scan(
 		&sub.ID,
@@ -133,7 +138,7 @@ func (r *SubscriptionRepositoryImpl) FindByUnsubscribeToken(
 func (r *SubscriptionRepositoryImpl) GetByEmail(
 	ctx context.Context,
 	email string,
-) ([]model.Subscription, error) {
+) ([]subscription.Subscription, error) {
 	query := `
 		SELECT id, email, repository_id, confirmed, active,
 		       confirm_token, unsubscribe_token, created_at, updated_at
@@ -152,10 +157,10 @@ func (r *SubscriptionRepositoryImpl) GetByEmail(
 		}
 	}()
 
-	var subs []model.Subscription
+	var subs []subscription.Subscription
 
 	for rows.Next() {
-		var sub model.Subscription
+		var sub subscription.Subscription
 
 		err := rows.Scan(
 			&sub.ID,
@@ -226,7 +231,7 @@ func (r *SubscriptionRepositoryImpl) ConfirmByToken(
 	}
 
 	if rowsAffected == 0 {
-		return sql.ErrNoRows
+		return ErrNotFound
 	}
 
 	return nil
@@ -254,7 +259,7 @@ func (r *SubscriptionRepositoryImpl) DeactivateByToken(
 	}
 
 	if rowsAffected == 0 {
-		return sql.ErrNoRows
+		return ErrNotFound
 	}
 
 	return nil
@@ -262,7 +267,7 @@ func (r *SubscriptionRepositoryImpl) DeactivateByToken(
 
 func (r *SubscriptionRepositoryImpl) GetAllConfirmedActive(
 	ctx context.Context,
-) ([]model.Subscription, error) {
+) ([]subscription.Subscription, error) {
 	query := `
 		SELECT id, email, repository_id, confirmed, active,
 		       confirm_token, unsubscribe_token, created_at, updated_at
@@ -281,10 +286,10 @@ func (r *SubscriptionRepositoryImpl) GetAllConfirmedActive(
 		}
 	}()
 
-	var subs []model.Subscription
+	var subs []subscription.Subscription
 
 	for rows.Next() {
-		var sub model.Subscription
+		var sub subscription.Subscription
 
 		err := rows.Scan(
 			&sub.ID,
@@ -314,7 +319,7 @@ func (r *SubscriptionRepositoryImpl) GetAllConfirmedActive(
 func (r *SubscriptionRepositoryImpl) GetConfirmedActiveByRepo(
 	ctx context.Context,
 	repoID int64,
-) ([]model.Subscription, error) {
+) ([]subscription.Subscription, error) {
 	query := `
 		SELECT id, email, repository_id, confirmed, active,
 		       confirm_token, unsubscribe_token, created_at, updated_at
@@ -335,10 +340,10 @@ func (r *SubscriptionRepositoryImpl) GetConfirmedActiveByRepo(
 		}
 	}()
 
-	var subs []model.Subscription
+	var subs []subscription.Subscription
 
 	for rows.Next() {
-		var sub model.Subscription
+		var sub subscription.Subscription
 
 		err := rows.Scan(
 			&sub.ID,

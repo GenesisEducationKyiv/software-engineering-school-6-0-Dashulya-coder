@@ -23,3 +23,8 @@ func ValidateRepo(repo string) error {
 
 	return nil
 }
+
+func ParseRepo(repo string) (owner, name string) {
+	parts := strings.Split(repo, "/")
+	return parts[0], parts[1]
+}

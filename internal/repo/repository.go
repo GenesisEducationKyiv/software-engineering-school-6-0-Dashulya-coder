@@ -1,8 +1,8 @@
-package model
+package repo
 
 import "time"
 
-type GitHubRepository struct {
+type Repository struct {
 	ID             int64
 	FullName       string
 	Owner          string
