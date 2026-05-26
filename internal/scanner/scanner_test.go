@@ -10,29 +10,36 @@ import (
 )
 
 type mockPoller struct {
-	calls atomic.Int32
+	calls  atomic.Int32
+	onPoll func()
 }
 
 func (m *mockPoller) Poll(_ context.Context) {
 	m.calls.Add(1)
+	if m.onPoll != nil {
+		m.onPoll()
+	}
 }
 
 var _ release.Poller = (*mockPoller)(nil)
 
 func TestScanner_Start_CallsPollOnTick(t *testing.T) {
-	p := &mockPoller{}
-	sc := New(p, 50*time.Millisecond)
+	done := make(chan struct{}, 10)
+	p := &mockPoller{
+		onPoll: func() { done <- struct{}{} },
+	}
+	sc := New(p, 10*time.Millisecond)
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
 	sc.Start(ctx)
 
-	time.Sleep(180 * time.Millisecond)
-	cancel()
-
-	got := p.calls.Load()
-	if got < 2 {
-		t.Fatalf("expected at least 2 Poll calls, got %d", got)
+	for i := 0; i < 2; i++ {
+		select {
+		case <-done:
+		case <-time.After(2 * time.Second):
+			t.Fatalf("Poll was not called in time (call %d)", i+1)
+		}
 	}
 }

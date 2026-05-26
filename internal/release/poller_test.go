@@ -12,7 +12,7 @@ import (
 )
 
 type mockSubscriptionRepository struct {
-	getAllConfirmedActiveFn     func(ctx context.Context) ([]subscription.Subscription, error)
+	getAllConfirmedActiveFn    func(ctx context.Context) ([]subscription.Subscription, error)
 	getConfirmedActiveByRepoFn func(ctx context.Context, repoID int64) ([]subscription.Subscription, error)
 }
 
@@ -327,8 +327,13 @@ func TestPoller_NoReleases_DoesNotFail(t *testing.T) {
 		},
 	}
 
-	p := NewPoller(subRepo, repoRepo, ghClient, &mockMailer{}, newTestURLs())
+	m := &mockMailer{}
+	p := NewPoller(subRepo, repoRepo, ghClient, m, newTestURLs())
 	p.Poll(context.Background())
+
+	if m.sendNewReleaseCalls != 0 {
+		t.Fatalf("expected 0 emails sent, got %d", m.sendNewReleaseCalls)
+	}
 }
 
 func TestPoller_GitHubError_DoesNotFail(t *testing.T) {
