@@ -273,7 +273,7 @@ func TestConfirm(t *testing.T) {
 			token:             "already-confirmed-token",
 			findResult:        &Subscription{ID: 1, ConfirmToken: "already-confirmed-token", Confirmed: true},
 			expectedErr:       nil,
-			expectConfirmCall: true,
+			expectConfirmCall: false,
 		},
 	}
 
