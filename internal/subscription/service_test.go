@@ -11,13 +11,13 @@ import (
 )
 
 type mockSubscriptionStore struct {
-	createFn                   func(ctx context.Context, sub *Subscription) error
-	findByConfirmTokenFn       func(ctx context.Context, token string) (*Subscription, error)
-	findByUnsubscribeTokenFn   func(ctx context.Context, token string) (*Subscription, error)
-	getByEmailFn               func(ctx context.Context, email string) ([]Subscription, error)
-	existsByEmailAndRepoFn     func(ctx context.Context, email string, repoID int64) (bool, error)
-	confirmByTokenFn           func(ctx context.Context, token string) error
-	deactivateByTokenFn        func(ctx context.Context, token string) error
+	createFn                 func(ctx context.Context, sub *Subscription) error
+	findByConfirmTokenFn     func(ctx context.Context, token string) (*Subscription, error)
+	findByUnsubscribeTokenFn func(ctx context.Context, token string) (*Subscription, error)
+	getByEmailFn             func(ctx context.Context, email string) ([]Subscription, error)
+	existsByEmailAndRepoFn   func(ctx context.Context, email string, repoID int64) (bool, error)
+	confirmByTokenFn         func(ctx context.Context, token string) error
+	deactivateByTokenFn      func(ctx context.Context, token string) error
 }
 
 func (m *mockSubscriptionStore) Create(ctx context.Context, sub *Subscription) error {
@@ -126,8 +126,10 @@ var _ gh.Client = (*mockGitHubClient)(nil)
 var _ TokenGenerator = (*mockTokenGenerator)(nil)
 
 func TestSubscribe_Success(t *testing.T) {
+	var createCalls, sendCalls int
 	subRepo := &mockSubscriptionStore{
 		createFn: func(ctx context.Context, sub *Subscription) error {
+			createCalls++
 			if sub.Email != "test@example.com" {
 				t.Fatalf("unexpected email: %s", sub.Email)
 			}
@@ -162,6 +164,7 @@ func TestSubscribe_Success(t *testing.T) {
 
 	m := &mockMailer{
 		sendConfirmationFn: func(email, confirmLink string) error {
+			sendCalls++
 			if email != "test@example.com" {
 				t.Fatalf("unexpected recipient: %s", email)
 			}
@@ -175,6 +178,12 @@ func TestSubscribe_Success(t *testing.T) {
 	svc := NewSubscriptionService(subRepo, repoRepo, ghClient, m, newTestURLs(), &mockTokenGenerator{})
 	if err := svc.Subscribe(context.Background(), "test@example.com", "golang/go"); err != nil {
 		t.Fatalf("Subscribe() unexpected error: %v", err)
+	}
+	if createCalls != 1 {
+		t.Fatalf("expected Create called once, got %d", createCalls)
+	}
+	if sendCalls != 1 {
+		t.Fatalf("expected SendConfirmation called once, got %d", sendCalls)
 	}
 }
 
@@ -208,9 +217,12 @@ func TestSubscribe_AlreadySubscribed(t *testing.T) {
 		findByConfirmTokenFn:     func(_ context.Context, _ string) (*Subscription, error) { return nil, nil },
 		findByUnsubscribeTokenFn: func(_ context.Context, _ string) (*Subscription, error) { return nil, nil },
 		getByEmailFn:             func(_ context.Context, _ string) ([]Subscription, error) { return nil, nil },
-		createFn:                 func(_ context.Context, _ *Subscription) error { return nil },
-		confirmByTokenFn:         func(_ context.Context, _ string) error { return nil },
-		deactivateByTokenFn:      func(_ context.Context, _ string) error { return nil },
+		createFn: func(_ context.Context, _ *Subscription) error {
+			t.Fatal("Create must not be called when already subscribed")
+			return nil
+		},
+		confirmByTokenFn:    func(_ context.Context, _ string) error { return nil },
+		deactivateByTokenFn: func(_ context.Context, _ string) error { return nil },
 	}
 
 	repoRepo := &mockRepoStore{
@@ -231,17 +243,19 @@ func TestSubscribe_AlreadySubscribed(t *testing.T) {
 
 func TestConfirm(t *testing.T) {
 	cases := []struct {
-		name        string
-		token       string
-		findResult  *Subscription
-		findErr     error
-		expectedErr error
+		name              string
+		token             string
+		findResult        *Subscription
+		findErr           error
+		expectedErr       error
+		expectConfirmCall bool
 	}{
 		{
-			name:        "success",
-			token:       "valid-token",
-			findResult:  &Subscription{ID: 1, ConfirmToken: "valid-token", Confirmed: false},
-			expectedErr: nil,
+			name:              "success",
+			token:             "valid-token",
+			findResult:        &Subscription{ID: 1, ConfirmToken: "valid-token", Confirmed: false},
+			expectedErr:       nil,
+			expectConfirmCall: true,
 		},
 		{
 			name:        "empty token",
@@ -255,18 +269,23 @@ func TestConfirm(t *testing.T) {
 			expectedErr: ErrTokenNotFound,
 		},
 		{
-			name:        "already confirmed",
-			token:       "already-confirmed-token",
-			findResult:  &Subscription{ID: 1, ConfirmToken: "already-confirmed-token", Confirmed: true},
-			expectedErr: nil,
+			name:              "already confirmed",
+			token:             "already-confirmed-token",
+			findResult:        &Subscription{ID: 1, ConfirmToken: "already-confirmed-token", Confirmed: true},
+			expectedErr:       nil,
+			expectConfirmCall: true,
 		},
 	}
 
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
+			var confirmCalls int
 			subRepo := &mockSubscriptionStore{
-				findByConfirmTokenFn:     func(_ context.Context, _ string) (*Subscription, error) { return tc.findResult, tc.findErr },
-				confirmByTokenFn:         func(_ context.Context, _ string) error { return nil },
+				findByConfirmTokenFn: func(_ context.Context, _ string) (*Subscription, error) { return tc.findResult, tc.findErr },
+				confirmByTokenFn: func(_ context.Context, _ string) error {
+					confirmCalls++
+					return nil
+				},
 				findByUnsubscribeTokenFn: func(_ context.Context, _ string) (*Subscription, error) { return nil, nil },
 				getByEmailFn:             func(_ context.Context, _ string) ([]Subscription, error) { return nil, nil },
 				createFn:                 func(_ context.Context, _ *Subscription) error { return nil },
@@ -277,7 +296,14 @@ func TestConfirm(t *testing.T) {
 			svc := NewSubscriptionService(subRepo, &mockRepoStore{}, &mockGitHubClient{}, &mockMailer{}, newTestURLs(), &mockTokenGenerator{})
 			err := svc.Confirm(context.Background(), tc.token)
 			if !errors.Is(err, tc.expectedErr) {
+
 				t.Fatalf("expected %v, got %v", tc.expectedErr, err)
+			}
+			if tc.expectConfirmCall && confirmCalls != 1 {
+				t.Fatalf("expected confirmByToken called once, got %d", confirmCalls)
+			}
+			if !tc.expectConfirmCall && confirmCalls != 0 {
+				t.Fatalf("expected confirmByToken not called, got %d calls", confirmCalls)
 			}
 		})
 	}
