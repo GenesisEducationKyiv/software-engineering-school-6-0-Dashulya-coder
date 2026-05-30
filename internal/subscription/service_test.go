@@ -296,7 +296,6 @@ func TestConfirm(t *testing.T) {
 			svc := NewSubscriptionService(subRepo, &mockRepoStore{}, &mockGitHubClient{}, &mockMailer{}, newTestURLs(), &mockTokenGenerator{})
 			err := svc.Confirm(context.Background(), tc.token)
 			if !errors.Is(err, tc.expectedErr) {
-
 				t.Fatalf("expected %v, got %v", tc.expectedErr, err)
 			}
 			if tc.expectConfirmCall && confirmCalls != 1 {
