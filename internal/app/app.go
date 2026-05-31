@@ -5,6 +5,7 @@ import (
 	"errors"
 	"log/slog"
 	"net/http"
+	"os"
 	"time"
 
 	"github.com/Dashulya-coder/CaseTaskNotifier/internal/config"
@@ -30,6 +31,9 @@ const (
 )
 
 func Run() error {
+	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
+	slog.SetDefault(logger)
+
 	cfg := config.Load()
 
 	if err := RunMigrations(cfg.DatabaseURL); err != nil {
