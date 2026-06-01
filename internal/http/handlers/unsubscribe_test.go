@@ -8,6 +8,8 @@ import (
 	"testing"
 
 	chi "github.com/go-chi/chi/v5"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
 
 	"github.com/Dashulya-coder/CaseTaskNotifier/internal/http/handlers"
 	"github.com/Dashulya-coder/CaseTaskNotifier/internal/subscription"
@@ -21,24 +23,24 @@ func TestUnsubscribeHandler(t *testing.T) {
 		expectedStatus int
 	}{
 		{
-			name:           "success",
+			name:           "OK",
 			token:          "valid-token",
 			expectedStatus: http.StatusOK,
 		},
 		{
-			name:           "invalid token",
+			name:           "Error_InvalidToken",
 			token:          "",
 			serviceErr:     subscription.ErrInvalidToken,
 			expectedStatus: http.StatusBadRequest,
 		},
 		{
-			name:           "token not found",
+			name:           "Error_TokenNotFound",
 			token:          "unknown-token",
 			serviceErr:     subscription.ErrTokenNotFound,
 			expectedStatus: http.StatusNotFound,
 		},
 		{
-			name:           "internal error",
+			name:           "Error_Internal",
 			token:          "some-token",
 			serviceErr:     errors.New("unexpected"),
 			expectedStatus: http.StatusInternalServerError,
@@ -47,9 +49,9 @@ func TestUnsubscribeHandler(t *testing.T) {
 
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			svc := &mockService{
-				unsubscribeFn: func(_ context.Context, _ string) error { return tc.serviceErr },
-			}
+			svc := new(mockService)
+			svc.On("Unsubscribe", mock.Anything, mock.Anything).Return(tc.serviceErr)
+
 			h := handlers.NewSubscriptionHandler(svc)
 
 			r := httptest.NewRequest(http.MethodGet, "/api/unsubscribe/"+tc.token, nil)
@@ -60,9 +62,8 @@ func TestUnsubscribeHandler(t *testing.T) {
 
 			h.Unsubscribe(w, r)
 
-			if w.Code != tc.expectedStatus {
-				t.Fatalf("expected status %d, got %d", tc.expectedStatus, w.Code)
-			}
+			assert.Equal(t, tc.expectedStatus, w.Code)
+			svc.AssertExpectations(t)
 		})
 	}
 }

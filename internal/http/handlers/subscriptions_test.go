@@ -1,12 +1,15 @@
 package handlers_test
 
 import (
-	"context"
 	"encoding/json"
 	"errors"
 	"net/http"
 	"net/http/httptest"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
+	"github.com/stretchr/testify/require"
 
 	"github.com/Dashulya-coder/CaseTaskNotifier/internal/http/handlers"
 	"github.com/Dashulya-coder/CaseTaskNotifier/internal/subscription"
@@ -24,7 +27,7 @@ func TestGetSubscriptions(t *testing.T) {
 		expectedLen    int
 	}{
 		{
-			name:  "success with results",
+			name:  "OK_WithResults",
 			email: "test@example.com",
 			serviceResult: []subscription.SubscriptionView{
 				{Email: "test@example.com", Repo: "golang/go", Confirmed: true, LastSeenTag: &tag},
@@ -33,21 +36,23 @@ func TestGetSubscriptions(t *testing.T) {
 			expectedLen:    1,
 		},
 		{
-			name:           "success empty results",
+			name:           "OK_EmptyResults",
 			email:          "test@example.com",
 			serviceResult:  []subscription.SubscriptionView{},
 			expectedStatus: http.StatusOK,
 			expectedLen:    0,
 		},
 		{
-			name:           "invalid email",
+			name:           "Error_InvalidEmail",
 			email:          "bad-email",
+			serviceResult:  []subscription.SubscriptionView(nil),
 			serviceErr:     subscription.ErrInvalidEmail,
 			expectedStatus: http.StatusBadRequest,
 		},
 		{
-			name:           "internal error",
+			name:           "Error_Internal",
 			email:          "test@example.com",
+			serviceResult:  []subscription.SubscriptionView(nil),
 			serviceErr:     errors.New("unexpected"),
 			expectedStatus: http.StatusInternalServerError,
 		},
@@ -55,11 +60,10 @@ func TestGetSubscriptions(t *testing.T) {
 
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			svc := &mockService{
-				getSubscriptionsByEmailFn: func(_ context.Context, _ string) ([]subscription.SubscriptionView, error) {
-					return tc.serviceResult, tc.serviceErr
-				},
-			}
+			svc := new(mockService)
+			svc.On("GetSubscriptionsByEmail", mock.Anything, mock.Anything).
+				Return(tc.serviceResult, tc.serviceErr)
+
 			h := handlers.NewSubscriptionHandler(svc)
 
 			r := httptest.NewRequest(http.MethodGet, "/api/subscriptions?email="+tc.email, nil)
@@ -67,18 +71,14 @@ func TestGetSubscriptions(t *testing.T) {
 
 			h.GetSubscriptions(w, r)
 
-			if w.Code != tc.expectedStatus {
-				t.Fatalf("expected status %d, got %d", tc.expectedStatus, w.Code)
-			}
+			assert.Equal(t, tc.expectedStatus, w.Code)
+			svc.AssertExpectations(t)
 
 			if tc.expectedStatus == http.StatusOK {
 				var result []map[string]interface{}
-				if err := json.NewDecoder(w.Body).Decode(&result); err != nil {
-					t.Fatalf("failed to decode response body: %v", err)
-				}
-				if len(result) != tc.expectedLen {
-					t.Fatalf("expected %d items, got %d", tc.expectedLen, len(result))
-				}
+				err := json.NewDecoder(w.Body).Decode(&result)
+				require.NoError(t, err)
+				assert.Len(t, result, tc.expectedLen)
 			}
 		})
 	}
