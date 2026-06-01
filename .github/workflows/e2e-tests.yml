@@ -28,8 +28,8 @@ jobs:
 
       - name: Run E2E tests
         env:
-          E2E_BASE_URL: "http://localhost:8080"
-        run: npx playwright test
+          E2E_BASE_URL: "http://localhost:8081"
+        run: npx playwright test --reporter=list
 
       - name: Upload Playwright report
         if: failure()
