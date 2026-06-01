@@ -1,4 +1,22 @@
 services:
+  app:
+    build: .
+    container_name: notifier-app
+    ports:
+      - "8080:8080"
+    environment:
+      - DATABASE_URL=postgres://postgres:postgres@db:5432/notifier?sslmode=disable
+      - SMTP_HOST=mailhog
+      - SMTP_PORT=1025
+      - SMTP_USER=
+      - SMTP_PASS=
+      - GITHUB_TOKEN=
+      - BASE_URL=http://localhost:8080
+      - PORT=8080
+      - SCAN_INTERVAL=1m
+    depends_on:
+      - db
+      - mailhog
   db:
     image: postgres:15
     container_name: notifier-db
