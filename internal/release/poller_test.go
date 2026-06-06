@@ -5,6 +5,8 @@ import (
 	"errors"
 	"testing"
 
+	"github.com/stretchr/testify/mock"
+
 	gh "github.com/Dashulya-coder/CaseTaskNotifier/internal/github"
 	"github.com/Dashulya-coder/CaseTaskNotifier/internal/repo"
 	"github.com/Dashulya-coder/CaseTaskNotifier/internal/subscription"
@@ -12,475 +14,390 @@ import (
 )
 
 type mockSubscriptionRepository struct {
-	getAllConfirmedActiveFn    func(ctx context.Context) ([]subscription.Subscription, error)
-	getConfirmedActiveByRepoFn func(ctx context.Context, repoID int64) ([]subscription.Subscription, error)
+	mock.Mock
 }
 
-func (m *mockSubscriptionRepository) Create(_ context.Context, _ *subscription.Subscription) error {
-	return nil
+func (m *mockSubscriptionRepository) Create(ctx context.Context, sub *subscription.Subscription) error {
+	return m.Called(ctx, sub).Error(0)
 }
 
-func (m *mockSubscriptionRepository) FindByConfirmToken(_ context.Context, _ string) (*subscription.Subscription, error) {
-	return nil, nil
-}
-
-func (m *mockSubscriptionRepository) FindByUnsubscribeToken(_ context.Context, _ string) (*subscription.Subscription, error) {
-	return nil, nil
-}
-
-func (m *mockSubscriptionRepository) GetByEmail(_ context.Context, _ string) ([]subscription.Subscription, error) {
-	return nil, nil
-}
-
-func (m *mockSubscriptionRepository) ExistsByEmailAndRepo(_ context.Context, _ string, _ int64) (bool, error) {
-	return false, nil
-}
-
-func (m *mockSubscriptionRepository) ConfirmByToken(_ context.Context, _ string) error {
-	return nil
-}
-
-func (m *mockSubscriptionRepository) DeactivateByToken(_ context.Context, _ string) error {
-	return nil
-}
-
-func (m *mockSubscriptionRepository) GetAllConfirmedActive(ctx context.Context) ([]subscription.Subscription, error) {
-	if m.getAllConfirmedActiveFn != nil {
-		return m.getAllConfirmedActiveFn(ctx)
+func (m *mockSubscriptionRepository) FindByConfirmToken(
+	ctx context.Context, token string,
+) (*subscription.Subscription, error) {
+	args := m.Called(ctx, token)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
 	}
-	return nil, nil
+	return args.Get(0).(*subscription.Subscription), args.Error(1)
 }
 
-func (m *mockSubscriptionRepository) GetConfirmedActiveByRepo(ctx context.Context, repoID int64) ([]subscription.Subscription, error) {
-	if m.getConfirmedActiveByRepoFn != nil {
-		return m.getConfirmedActiveByRepoFn(ctx, repoID)
+func (m *mockSubscriptionRepository) FindByUnsubscribeToken(
+	ctx context.Context, token string,
+) (*subscription.Subscription, error) {
+	args := m.Called(ctx, token)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
 	}
-	return nil, nil
+	return args.Get(0).(*subscription.Subscription), args.Error(1)
+}
+
+func (m *mockSubscriptionRepository) GetByEmail(
+	ctx context.Context, email string,
+) ([]subscription.Subscription, error) {
+	args := m.Called(ctx, email)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).([]subscription.Subscription), args.Error(1)
+}
+
+func (m *mockSubscriptionRepository) ExistsByEmailAndRepo(
+	ctx context.Context, email string, repoID int64,
+) (bool, error) {
+	args := m.Called(ctx, email, repoID)
+	return args.Bool(0), args.Error(1)
+}
+
+func (m *mockSubscriptionRepository) ConfirmByToken(ctx context.Context, token string) error {
+	return m.Called(ctx, token).Error(0)
+}
+
+func (m *mockSubscriptionRepository) DeactivateByToken(ctx context.Context, token string) error {
+	return m.Called(ctx, token).Error(0)
+}
+
+func (m *mockSubscriptionRepository) GetAllConfirmedActive(
+	ctx context.Context,
+) ([]subscription.Subscription, error) {
+	args := m.Called(ctx)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).([]subscription.Subscription), args.Error(1)
+}
+
+func (m *mockSubscriptionRepository) GetConfirmedActiveByRepo(
+	ctx context.Context, repoID int64,
+) ([]subscription.Subscription, error) {
+	args := m.Called(ctx, repoID)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).([]subscription.Subscription), args.Error(1)
 }
 
 type mockGitHubRepository struct {
-	getByIDFn           func(ctx context.Context, id int64) (*repo.Repository, error)
-	updateLastSeenTagFn func(ctx context.Context, repoID int64, tag string, releaseURL string) error
+	mock.Mock
 }
 
-func (m *mockGitHubRepository) FindOrCreate(_ context.Context, _, _, _ string) (*repo.Repository, error) {
-	return nil, nil
+func (m *mockGitHubRepository) FindOrCreate(
+	ctx context.Context, owner, name, fullName string,
+) (*repo.Repository, error) {
+	args := m.Called(ctx, owner, name, fullName)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*repo.Repository), args.Error(1)
 }
 
-func (m *mockGitHubRepository) FindByFullName(_ context.Context, _ string) (*repo.Repository, error) {
-	return nil, nil
+func (m *mockGitHubRepository) FindByFullName(
+	ctx context.Context, fullName string,
+) (*repo.Repository, error) {
+	args := m.Called(ctx, fullName)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*repo.Repository), args.Error(1)
 }
 
 func (m *mockGitHubRepository) GetByID(ctx context.Context, id int64) (*repo.Repository, error) {
-	if m.getByIDFn != nil {
-		return m.getByIDFn(ctx, id)
+	args := m.Called(ctx, id)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
 	}
-	return nil, nil
+	return args.Get(0).(*repo.Repository), args.Error(1)
 }
 
-func (m *mockGitHubRepository) UpdateLastSeenTag(ctx context.Context, repoID int64, tag string, releaseURL string) error {
-	if m.updateLastSeenTagFn != nil {
-		return m.updateLastSeenTagFn(ctx, repoID, tag, releaseURL)
-	}
-	return nil
+func (m *mockGitHubRepository) UpdateLastSeenTag(
+	ctx context.Context, repoID int64, tag string, releaseURL string,
+) error {
+	return m.Called(ctx, repoID, tag, releaseURL).Error(0)
 }
 
 type mockGitHubClient struct {
-	getLatestReleaseFn func(ctx context.Context, owner, repo string) (string, string, error)
+	mock.Mock
 }
 
-func (m *mockGitHubClient) RepositoryExists(_ context.Context, _, _ string) (bool, error) {
-	return true, nil
+func (m *mockGitHubClient) RepositoryExists(ctx context.Context, owner, repoName string) (bool, error) {
+	args := m.Called(ctx, owner, repoName)
+	return args.Bool(0), args.Error(1)
 }
 
-func (m *mockGitHubClient) GetLatestRelease(ctx context.Context, owner, repo string) (string, string, error) {
-	if m.getLatestReleaseFn != nil {
-		return m.getLatestReleaseFn(ctx, owner, repo)
-	}
-	return "", "", nil
+func (m *mockGitHubClient) GetLatestRelease(
+	ctx context.Context, owner, repoName string,
+) (string, string, error) {
+	args := m.Called(ctx, owner, repoName)
+	return args.String(0), args.String(1), args.Error(2)
 }
 
 type mockMailer struct {
-	sendNewReleaseCalls int
-	sendNewReleaseFn    func(email, repo, tag, releaseURL, unsubscribeLink string) error
+	mock.Mock
 }
 
-func (m *mockMailer) SendConfirmation(_, _ string) error {
-	return nil
+func (m *mockMailer) SendConfirmation(email, link string) error {
+	return m.Called(email, link).Error(0)
 }
 
-func (m *mockMailer) SendNewRelease(email, repo, tag, releaseURL, unsubscribeLink string) error {
-	m.sendNewReleaseCalls++
-	if m.sendNewReleaseFn != nil {
-		return m.sendNewReleaseFn(email, repo, tag, releaseURL, unsubscribeLink)
-	}
-	return nil
+func (m *mockMailer) SendNewRelease(email, repoName, tag, releaseURL, unsubscribeLink string) error {
+	return m.Called(email, repoName, tag, releaseURL, unsubscribeLink).Error(0)
 }
 
 func newTestURLs() *urlbuilder.Builder {
 	return urlbuilder.New("http://localhost:8080")
 }
 
-var _ gh.Client = (*mockGitHubClient)(nil)
-
 func TestPoller_NoConfirmedActiveSubscriptions(t *testing.T) {
-	subRepo := &mockSubscriptionRepository{
-		getAllConfirmedActiveFn: func(_ context.Context) ([]subscription.Subscription, error) {
-			return []subscription.Subscription{}, nil
-		},
-	}
+	subRepo := new(mockSubscriptionRepository)
+	subRepo.On("GetAllConfirmedActive", mock.Anything).
+		Return([]subscription.Subscription{}, nil).Once()
 
-	ghClientCalled := false
-	ghClient := &mockGitHubClient{
-		getLatestReleaseFn: func(_ context.Context, _, _ string) (string, string, error) {
-			ghClientCalled = true
-			return "", "", nil
-		},
-	}
-	m := &mockMailer{}
+	ghClient := new(mockGitHubClient)
+	mailerMock := new(mockMailer)
 
-	p := NewPoller(subRepo, &mockGitHubRepository{}, ghClient, m, newTestURLs())
+	p := NewPoller(subRepo, new(mockGitHubRepository), ghClient, mailerMock, newTestURLs())
 	p.Poll(context.Background())
 
-	if ghClientCalled {
-		t.Fatal("github client should not be called when there are no subscriptions")
-	}
-	if m.sendNewReleaseCalls != 0 {
-		t.Fatalf("expected 0 emails sent, got %d", m.sendNewReleaseCalls)
-	}
+	subRepo.AssertExpectations(t)
+	ghClient.AssertExpectations(t)
+	mailerMock.AssertExpectations(t)
 }
 
 func TestPoller_SameTag_NoEmailSent(t *testing.T) {
 	lastSeen := "v1.0.0"
 
-	subRepo := &mockSubscriptionRepository{
-		getAllConfirmedActiveFn: func(_ context.Context) ([]subscription.Subscription, error) {
-			return []subscription.Subscription{
-				{ID: 1, Email: "test@example.com", RepositoryID: 10, Confirmed: true, Active: true, UnsubscribeToken: "tok"},
-			}, nil
-		},
-	}
+	subRepo := new(mockSubscriptionRepository)
+	subRepo.On("GetAllConfirmedActive", mock.Anything).Return([]subscription.Subscription{
+		{ID: 1, Email: "test@example.com", RepositoryID: 10, Confirmed: true, Active: true, UnsubscribeToken: "tok"},
+	}, nil).Once()
 
-	repoRepo := &mockGitHubRepository{
-		getByIDFn: func(_ context.Context, _ int64) (*repo.Repository, error) {
-			return &repo.Repository{ID: 10, FullName: "cli/cli", Owner: "cli", Name: "cli", LastSeenTag: &lastSeen}, nil
-		},
-		updateLastSeenTagFn: func(_ context.Context, _ int64, _ string, _ string) error {
-			t.Fatal("last seen tag should not be updated when tag did not change")
-			return nil
-		},
-	}
+	repoRepo := new(mockGitHubRepository)
+	repoRepo.On("GetByID", mock.Anything, int64(10)).
+		Return(&repo.Repository{ID: 10, FullName: "cli/cli", Owner: "cli", Name: "cli", LastSeenTag: &lastSeen}, nil).Once()
 
-	ghClient := &mockGitHubClient{
-		getLatestReleaseFn: func(_ context.Context, _, _ string) (string, string, error) {
-			return "v1.0.0", "https://example.com/release", nil
-		},
-	}
+	ghClient := new(mockGitHubClient)
+	ghClient.On("GetLatestRelease", mock.Anything, "cli", "cli").
+		Return("v1.0.0", "https://example.com/release", nil).Once()
 
-	m := &mockMailer{
-		sendNewReleaseFn: func(_, _, _, _, _ string) error {
-			t.Fatal("email should not be sent when tag did not change")
-			return nil
-		},
-	}
+	mailerMock := new(mockMailer)
 
-	p := NewPoller(subRepo, repoRepo, ghClient, m, newTestURLs())
+	p := NewPoller(subRepo, repoRepo, ghClient, mailerMock, newTestURLs())
 	p.Poll(context.Background())
 
-	if m.sendNewReleaseCalls != 0 {
-		t.Fatalf("expected 0 emails sent, got %d", m.sendNewReleaseCalls)
-	}
+	mailerMock.AssertNumberOfCalls(t, "SendNewRelease", 0)
+	subRepo.AssertExpectations(t)
+	repoRepo.AssertExpectations(t)
+	ghClient.AssertExpectations(t)
+	mailerMock.AssertExpectations(t)
 }
 
 func TestPoller_NewTag_SendsEmailAndUpdatesTag(t *testing.T) {
 	lastSeen := "old-tag"
 
-	subRepo := &mockSubscriptionRepository{
-		getAllConfirmedActiveFn: func(_ context.Context) ([]subscription.Subscription, error) {
-			return []subscription.Subscription{
-				{ID: 1, Email: "a@example.com", RepositoryID: 20, Confirmed: true, Active: true, UnsubscribeToken: "tok1"},
-				{ID: 2, Email: "b@example.com", RepositoryID: 20, Confirmed: true, Active: true, UnsubscribeToken: "tok2"},
-			}, nil
-		},
-	}
+	subRepo := new(mockSubscriptionRepository)
+	subRepo.On("GetAllConfirmedActive", mock.Anything).Return([]subscription.Subscription{
+		{ID: 1, Email: "a@example.com", RepositoryID: 20, Confirmed: true, Active: true, UnsubscribeToken: "tok1"},
+		{ID: 2, Email: "b@example.com", RepositoryID: 20, Confirmed: true, Active: true, UnsubscribeToken: "tok2"},
+	}, nil).Once()
 
-	updated := false
-	repoRepo := &mockGitHubRepository{
-		getByIDFn: func(_ context.Context, _ int64) (*repo.Repository, error) {
-			return &repo.Repository{ID: 20, FullName: "cli/cli", Owner: "cli", Name: "cli", LastSeenTag: &lastSeen}, nil
-		},
-		updateLastSeenTagFn: func(_ context.Context, repoID int64, tag, releaseURL string) error {
-			updated = true
-			if repoID != 20 {
-				t.Fatalf("unexpected repo id: %d", repoID)
-			}
-			if tag != "v2.0.0" {
-				t.Fatalf("unexpected tag: %s", tag)
-			}
-			return nil
-		},
-	}
+	repoRepo := new(mockGitHubRepository)
+	repoRepo.On("GetByID", mock.Anything, int64(20)).
+		Return(&repo.Repository{ID: 20, FullName: "cli/cli", Owner: "cli", Name: "cli", LastSeenTag: &lastSeen}, nil).Once()
+	repoRepo.On("UpdateLastSeenTag", mock.Anything, int64(20), "v2.0.0", "https://example.com/v2.0.0").
+		Return(nil).Once()
 
-	ghClient := &mockGitHubClient{
-		getLatestReleaseFn: func(_ context.Context, _, _ string) (string, string, error) {
-			return "v2.0.0", "https://example.com/v2.0.0", nil
-		},
-	}
+	ghClient := new(mockGitHubClient)
+	ghClient.On("GetLatestRelease", mock.Anything, "cli", "cli").
+		Return("v2.0.0", "https://example.com/v2.0.0", nil).Once()
 
-	m := &mockMailer{
-		sendNewReleaseFn: func(_, repo, tag, _, unsubscribeLink string) error {
-			if repo != "cli/cli" {
-				t.Fatalf("unexpected repo: %s", repo)
-			}
-			if tag != "v2.0.0" {
-				t.Fatalf("unexpected tag: %s", tag)
-			}
-			if unsubscribeLink == "" {
-				t.Fatal("unsubscribe link should not be empty")
-			}
-			return nil
-		},
-	}
+	mailerMock := new(mockMailer)
+	mailerMock.On("SendNewRelease", "a@example.com", "cli/cli", "v2.0.0", "https://example.com/v2.0.0",
+		mock.MatchedBy(func(link string) bool { return link != "" })).Return(nil).Once()
+	mailerMock.On("SendNewRelease", "b@example.com", "cli/cli", "v2.0.0", "https://example.com/v2.0.0",
+		mock.MatchedBy(func(link string) bool { return link != "" })).Return(nil).Once()
 
-	p := NewPoller(subRepo, repoRepo, ghClient, m, newTestURLs())
+	p := NewPoller(subRepo, repoRepo, ghClient, mailerMock, newTestURLs())
 	p.Poll(context.Background())
 
-	if m.sendNewReleaseCalls != 2 {
-		t.Fatalf("expected 2 emails sent, got %d", m.sendNewReleaseCalls)
-	}
-	if !updated {
-		t.Fatal("expected last seen tag to be updated")
-	}
+	mailerMock.AssertNumberOfCalls(t, "SendNewRelease", 2)
+	subRepo.AssertExpectations(t)
+	repoRepo.AssertExpectations(t)
+	ghClient.AssertExpectations(t)
+	mailerMock.AssertExpectations(t)
 }
 
 func TestPoller_FirstSeenRelease_SetsBaselineWithoutEmail(t *testing.T) {
-	subRepo := &mockSubscriptionRepository{
-		getAllConfirmedActiveFn: func(_ context.Context) ([]subscription.Subscription, error) {
-			return []subscription.Subscription{
-				{ID: 1, Email: "test@example.com", RepositoryID: 30, Confirmed: true, Active: true, UnsubscribeToken: "tok"},
-			}, nil
-		},
-	}
+	subRepo := new(mockSubscriptionRepository)
+	subRepo.On("GetAllConfirmedActive", mock.Anything).Return([]subscription.Subscription{
+		{ID: 1, Email: "test@example.com", RepositoryID: 30, Confirmed: true, Active: true, UnsubscribeToken: "tok"},
+	}, nil).Once()
 
-	updated := false
-	repoRepo := &mockGitHubRepository{
-		getByIDFn: func(_ context.Context, _ int64) (*repo.Repository, error) {
-			return &repo.Repository{ID: 30, FullName: "cli/cli", Owner: "cli", Name: "cli", LastSeenTag: nil}, nil
-		},
-		updateLastSeenTagFn: func(_ context.Context, _ int64, tag, _ string) error {
-			updated = true
-			if tag != "v3.0.0" {
-				t.Fatalf("unexpected tag: %s", tag)
-			}
-			return nil
-		},
-	}
+	repoRepo := new(mockGitHubRepository)
+	repoRepo.On("GetByID", mock.Anything, int64(30)).
+		Return(&repo.Repository{ID: 30, FullName: "cli/cli", Owner: "cli", Name: "cli", LastSeenTag: nil}, nil).Once()
+	repoRepo.On("UpdateLastSeenTag", mock.Anything, int64(30), "v3.0.0", "https://example.com/v3.0.0").
+		Return(nil).Once()
 
-	ghClient := &mockGitHubClient{
-		getLatestReleaseFn: func(_ context.Context, _, _ string) (string, string, error) {
-			return "v3.0.0", "https://example.com/v3.0.0", nil
-		},
-	}
+	ghClient := new(mockGitHubClient)
+	ghClient.On("GetLatestRelease", mock.Anything, "cli", "cli").
+		Return("v3.0.0", "https://example.com/v3.0.0", nil).Once()
 
-	m := &mockMailer{
-		sendNewReleaseFn: func(_, _, _, _, _ string) error {
-			t.Fatal("email should not be sent when setting baseline")
-			return nil
-		},
-	}
+	mailerMock := new(mockMailer)
 
-	p := NewPoller(subRepo, repoRepo, ghClient, m, newTestURLs())
+	p := NewPoller(subRepo, repoRepo, ghClient, mailerMock, newTestURLs())
 	p.Poll(context.Background())
 
-	if !updated {
-		t.Fatal("expected baseline tag to be set")
-	}
-	if m.sendNewReleaseCalls != 0 {
-		t.Fatalf("expected 0 emails sent, got %d", m.sendNewReleaseCalls)
-	}
+	mailerMock.AssertNumberOfCalls(t, "SendNewRelease", 0)
+	subRepo.AssertExpectations(t)
+	repoRepo.AssertExpectations(t)
+	ghClient.AssertExpectations(t)
+	mailerMock.AssertExpectations(t)
 }
 
 func TestPoller_NoReleases_DoesNotFail(t *testing.T) {
 	lastSeen := "v1.0.0"
 
-	subRepo := &mockSubscriptionRepository{
-		getAllConfirmedActiveFn: func(_ context.Context) ([]subscription.Subscription, error) {
-			return []subscription.Subscription{
-				{ID: 1, Email: "test@example.com", RepositoryID: 40, Confirmed: true, Active: true},
-			}, nil
-		},
-	}
+	subRepo := new(mockSubscriptionRepository)
+	subRepo.On("GetAllConfirmedActive", mock.Anything).Return([]subscription.Subscription{
+		{ID: 1, Email: "test@example.com", RepositoryID: 40, Confirmed: true, Active: true},
+	}, nil).Once()
 
-	repoRepo := &mockGitHubRepository{
-		getByIDFn: func(_ context.Context, _ int64) (*repo.Repository, error) {
-			return &repo.Repository{ID: 40, FullName: "golang/go", Owner: "golang", Name: "go", LastSeenTag: &lastSeen}, nil
-		},
-		updateLastSeenTagFn: func(_ context.Context, _ int64, _, _ string) error {
-			t.Fatal("should not update tag when no releases")
-			return nil
-		},
-	}
+	repoRepo := new(mockGitHubRepository)
+	repoRepo.On("GetByID", mock.Anything, int64(40)).
+		Return(&repo.Repository{ID: 40, FullName: "golang/go", Owner: "golang", Name: "go", LastSeenTag: &lastSeen}, nil).Once()
 
-	ghClient := &mockGitHubClient{
-		getLatestReleaseFn: func(_ context.Context, _, _ string) (string, string, error) {
-			return "", "", gh.ErrNoReleases
-		},
-	}
+	ghClient := new(mockGitHubClient)
+	ghClient.On("GetLatestRelease", mock.Anything, "golang", "go").
+		Return("", "", gh.ErrNoReleases).Once()
 
-	m := &mockMailer{}
-	p := NewPoller(subRepo, repoRepo, ghClient, m, newTestURLs())
+	mailerMock := new(mockMailer)
+
+	p := NewPoller(subRepo, repoRepo, ghClient, mailerMock, newTestURLs())
 	p.Poll(context.Background())
 
-	if m.sendNewReleaseCalls != 0 {
-		t.Fatalf("expected 0 emails sent, got %d", m.sendNewReleaseCalls)
-	}
+	mailerMock.AssertNumberOfCalls(t, "SendNewRelease", 0)
+	subRepo.AssertExpectations(t)
+	repoRepo.AssertExpectations(t)
+	ghClient.AssertExpectations(t)
+	mailerMock.AssertExpectations(t)
 }
 
 func TestPoller_GitHubError_DoesNotFail(t *testing.T) {
-	subRepo := &mockSubscriptionRepository{
-		getAllConfirmedActiveFn: func(_ context.Context) ([]subscription.Subscription, error) {
-			return []subscription.Subscription{
-				{ID: 1, Email: "test@example.com", RepositoryID: 50, Confirmed: true, Active: true},
-			}, nil
-		},
-	}
+	subRepo := new(mockSubscriptionRepository)
+	subRepo.On("GetAllConfirmedActive", mock.Anything).Return([]subscription.Subscription{
+		{ID: 1, Email: "test@example.com", RepositoryID: 50, Confirmed: true, Active: true},
+	}, nil).Once()
 
-	repoRepo := &mockGitHubRepository{
-		getByIDFn: func(_ context.Context, _ int64) (*repo.Repository, error) {
-			return &repo.Repository{ID: 50, FullName: "cli/cli", Owner: "cli", Name: "cli"}, nil
-		},
-		updateLastSeenTagFn: func(_ context.Context, _ int64, _, _ string) error {
-			t.Fatal("should not update tag on github error")
-			return nil
-		},
-	}
+	repoRepo := new(mockGitHubRepository)
+	repoRepo.On("GetByID", mock.Anything, int64(50)).
+		Return(&repo.Repository{ID: 50, FullName: "cli/cli", Owner: "cli", Name: "cli"}, nil).Once()
 
-	ghClient := &mockGitHubClient{
-		getLatestReleaseFn: func(_ context.Context, _, _ string) (string, string, error) {
-			return "", "", errors.New("network error")
-		},
-	}
+	ghClient := new(mockGitHubClient)
+	ghClient.On("GetLatestRelease", mock.Anything, "cli", "cli").
+		Return("", "", errors.New("network error")).Once()
 
-	m := &mockMailer{}
-	p := NewPoller(subRepo, repoRepo, ghClient, m, newTestURLs())
+	mailerMock := new(mockMailer)
+
+	p := NewPoller(subRepo, repoRepo, ghClient, mailerMock, newTestURLs())
 	p.Poll(context.Background())
 
-	if m.sendNewReleaseCalls != 0 {
-		t.Fatalf("expected 0 emails sent, got %d", m.sendNewReleaseCalls)
-	}
+	mailerMock.AssertNumberOfCalls(t, "SendNewRelease", 0)
+	subRepo.AssertExpectations(t)
+	repoRepo.AssertExpectations(t)
+	ghClient.AssertExpectations(t)
+	mailerMock.AssertExpectations(t)
 }
 
 func TestPoller_GetAllConfirmedActiveError_DoesNotFail(t *testing.T) {
-	subRepo := &mockSubscriptionRepository{
-		getAllConfirmedActiveFn: func(_ context.Context) ([]subscription.Subscription, error) {
-			return nil, errors.New("db error")
-		},
-	}
+	subRepo := new(mockSubscriptionRepository)
+	subRepo.On("GetAllConfirmedActive", mock.Anything).Return(nil, errors.New("db error")).Once()
 
-	ghClient := &mockGitHubClient{
-		getLatestReleaseFn: func(_ context.Context, _, _ string) (string, string, error) {
-			t.Fatal("github client should not be called on db error")
-			return "", "", nil
-		},
-	}
+	ghClient := new(mockGitHubClient)
+	mailerMock := new(mockMailer)
 
-	m := &mockMailer{}
-	p := NewPoller(subRepo, &mockGitHubRepository{}, ghClient, m, newTestURLs())
+	p := NewPoller(subRepo, new(mockGitHubRepository), ghClient, mailerMock, newTestURLs())
 	p.Poll(context.Background())
 
-	if m.sendNewReleaseCalls != 0 {
-		t.Fatalf("expected 0 emails sent, got %d", m.sendNewReleaseCalls)
-	}
+	mailerMock.AssertNumberOfCalls(t, "SendNewRelease", 0)
+	subRepo.AssertExpectations(t)
+	ghClient.AssertExpectations(t)
+	mailerMock.AssertExpectations(t)
 }
 
 func TestPoller_GetByIDError_DoesNotFail(t *testing.T) {
-	subRepo := &mockSubscriptionRepository{
-		getAllConfirmedActiveFn: func(_ context.Context) ([]subscription.Subscription, error) {
-			return []subscription.Subscription{
-				{ID: 1, Email: "test@example.com", RepositoryID: 60, Confirmed: true, Active: true},
-			}, nil
-		},
-	}
+	subRepo := new(mockSubscriptionRepository)
+	subRepo.On("GetAllConfirmedActive", mock.Anything).Return([]subscription.Subscription{
+		{ID: 1, Email: "test@example.com", RepositoryID: 60, Confirmed: true, Active: true},
+	}, nil).Once()
 
-	repoRepo := &mockGitHubRepository{
-		getByIDFn: func(_ context.Context, _ int64) (*repo.Repository, error) {
-			return nil, errors.New("db error")
-		},
-		updateLastSeenTagFn: func(_ context.Context, _ int64, _, _ string) error {
-			t.Fatal("should not update tag on repo lookup error")
-			return nil
-		},
-	}
+	repoRepo := new(mockGitHubRepository)
+	repoRepo.On("GetByID", mock.Anything, int64(60)).
+		Return(nil, errors.New("db error")).Once()
 
-	m := &mockMailer{}
-	p := NewPoller(subRepo, repoRepo, &mockGitHubClient{}, m, newTestURLs())
+	mailerMock := new(mockMailer)
+
+	p := NewPoller(subRepo, repoRepo, new(mockGitHubClient), mailerMock, newTestURLs())
 	p.Poll(context.Background())
 
-	if m.sendNewReleaseCalls != 0 {
-		t.Fatalf("expected 0 emails sent, got %d", m.sendNewReleaseCalls)
-	}
+	mailerMock.AssertNumberOfCalls(t, "SendNewRelease", 0)
+	subRepo.AssertExpectations(t)
+	repoRepo.AssertExpectations(t)
+	mailerMock.AssertExpectations(t)
 }
 
 func TestPoller_RepoNotFound_DoesNotFail(t *testing.T) {
-	subRepo := &mockSubscriptionRepository{
-		getAllConfirmedActiveFn: func(_ context.Context) ([]subscription.Subscription, error) {
-			return []subscription.Subscription{
-				{ID: 1, Email: "test@example.com", RepositoryID: 70, Confirmed: true, Active: true},
-			}, nil
-		},
-	}
+	subRepo := new(mockSubscriptionRepository)
+	subRepo.On("GetAllConfirmedActive", mock.Anything).Return([]subscription.Subscription{
+		{ID: 1, Email: "test@example.com", RepositoryID: 70, Confirmed: true, Active: true},
+	}, nil).Once()
 
-	repoRepo := &mockGitHubRepository{
-		getByIDFn: func(_ context.Context, _ int64) (*repo.Repository, error) {
-			return nil, nil
-		},
-		updateLastSeenTagFn: func(_ context.Context, _ int64, _, _ string) error {
-			t.Fatal("should not update tag when repo not found")
-			return nil
-		},
-	}
+	repoRepo := new(mockGitHubRepository)
+	repoRepo.On("GetByID", mock.Anything, int64(70)).Return(nil, nil).Once()
 
-	m := &mockMailer{}
-	p := NewPoller(subRepo, repoRepo, &mockGitHubClient{}, m, newTestURLs())
+	mailerMock := new(mockMailer)
+
+	p := NewPoller(subRepo, repoRepo, new(mockGitHubClient), mailerMock, newTestURLs())
 	p.Poll(context.Background())
 
-	if m.sendNewReleaseCalls != 0 {
-		t.Fatalf("expected 0 emails sent, got %d", m.sendNewReleaseCalls)
-	}
+	mailerMock.AssertNumberOfCalls(t, "SendNewRelease", 0)
+	subRepo.AssertExpectations(t)
+	repoRepo.AssertExpectations(t)
+	mailerMock.AssertExpectations(t)
 }
 
 func TestPoller_RateLimited_DoesNotFail(t *testing.T) {
 	lastSeen := "v1.0.0"
 
-	subRepo := &mockSubscriptionRepository{
-		getAllConfirmedActiveFn: func(_ context.Context) ([]subscription.Subscription, error) {
-			return []subscription.Subscription{
-				{ID: 1, Email: "test@example.com", RepositoryID: 80, Confirmed: true, Active: true},
-			}, nil
-		},
-	}
+	subRepo := new(mockSubscriptionRepository)
+	subRepo.On("GetAllConfirmedActive", mock.Anything).Return([]subscription.Subscription{
+		{ID: 1, Email: "test@example.com", RepositoryID: 80, Confirmed: true, Active: true},
+	}, nil).Once()
 
-	repoRepo := &mockGitHubRepository{
-		getByIDFn: func(_ context.Context, _ int64) (*repo.Repository, error) {
-			return &repo.Repository{ID: 80, FullName: "cli/cli", Owner: "cli", Name: "cli", LastSeenTag: &lastSeen}, nil
-		},
-		updateLastSeenTagFn: func(_ context.Context, _ int64, _, _ string) error {
-			t.Fatal("should not update tag when rate limited")
-			return nil
-		},
-	}
+	repoRepo := new(mockGitHubRepository)
+	repoRepo.On("GetByID", mock.Anything, int64(80)).
+		Return(&repo.Repository{ID: 80, FullName: "cli/cli", Owner: "cli", Name: "cli", LastSeenTag: &lastSeen}, nil).Once()
 
-	ghClient := &mockGitHubClient{
-		getLatestReleaseFn: func(_ context.Context, _, _ string) (string, string, error) {
-			return "", "", gh.ErrRateLimited
-		},
-	}
+	ghClient := new(mockGitHubClient)
+	ghClient.On("GetLatestRelease", mock.Anything, "cli", "cli").
+		Return("", "", gh.ErrRateLimited).Once()
 
-	m := &mockMailer{}
-	p := NewPoller(subRepo, repoRepo, ghClient, m, newTestURLs())
+	mailerMock := new(mockMailer)
+
+	p := NewPoller(subRepo, repoRepo, ghClient, mailerMock, newTestURLs())
 	p.Poll(context.Background())
 
-	if m.sendNewReleaseCalls != 0 {
-		t.Fatalf("expected 0 emails sent, got %d", m.sendNewReleaseCalls)
-	}
+	mailerMock.AssertNumberOfCalls(t, "SendNewRelease", 0)
+	subRepo.AssertExpectations(t)
+	repoRepo.AssertExpectations(t)
+	ghClient.AssertExpectations(t)
+	mailerMock.AssertExpectations(t)
 }
