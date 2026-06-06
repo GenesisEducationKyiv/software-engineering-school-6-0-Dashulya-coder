@@ -16,24 +16,28 @@ type mockSubscriptionRepository struct {
 	getConfirmedActiveByRepoFn func(ctx context.Context, repoID int64) ([]subscription.Subscription, error)
 }
 
-func (m *mockSubscriptionRepository) Create(_ context.Context, _ *subscription.Subscription) error {
-	return nil
-}
-
-func (m *mockSubscriptionRepository) FindByConfirmToken(_ context.Context, _ string) (*subscription.Subscription, error) {
-	return nil, nil
-}
-
-func (m *mockSubscriptionRepository) FindByUnsubscribeToken(_ context.Context, _ string) (*subscription.Subscription, error) {
-	return nil, nil
-}
-
-func (m *mockSubscriptionRepository) GetByEmail(_ context.Context, _ string) ([]subscription.Subscription, error) {
-	return nil, nil
-}
-
-func (m *mockSubscriptionRepository) ExistsByEmailAndRepo(_ context.Context, _ string, _ int64) (bool, error) {
+func (m *mockSubscriptionRepository) UpsertPending(
+	_ context.Context, _ *subscription.Subscription,
+) (bool, error) {
 	return false, nil
+}
+
+func (m *mockSubscriptionRepository) FindByConfirmToken(
+	_ context.Context, _ string,
+) (*subscription.Subscription, error) {
+	return nil, nil
+}
+
+func (m *mockSubscriptionRepository) FindByUnsubscribeToken(
+	_ context.Context, _ string,
+) (*subscription.Subscription, error) {
+	return nil, nil
+}
+
+func (m *mockSubscriptionRepository) GetByEmail(
+	_ context.Context, _ string,
+) ([]subscription.Subscription, error) {
+	return nil, nil
 }
 
 func (m *mockSubscriptionRepository) ConfirmByToken(_ context.Context, _ string) error {
