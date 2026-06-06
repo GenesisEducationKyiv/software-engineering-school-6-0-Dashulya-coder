@@ -183,6 +183,42 @@ func confirmSubscriptionInDB(t *testing.T, confirmToken string) {
 	}
 }
 
+func fetchConfirmToken(t *testing.T, email, repoFullName string) string {
+	t.Helper()
+
+	const q = `
+		SELECT s.confirm_token
+		FROM subscriptions s
+		JOIN repositories r ON r.id = s.repository_id
+		WHERE s.email = $1 AND r.full_name = $2
+	`
+
+	var tok string
+	if err := testDB.QueryRowContext(context.Background(), q, email, repoFullName).Scan(&tok); err != nil {
+		t.Fatalf("fetch confirm token: %v", err)
+	}
+
+	return tok
+}
+
+func fetchUnsubscribeToken(t *testing.T, email, repoFullName string) string {
+	t.Helper()
+
+	const q = `
+		SELECT s.unsubscribe_token
+		FROM subscriptions s
+		JOIN repositories r ON r.id = s.repository_id
+		WHERE s.email = $1 AND r.full_name = $2
+	`
+
+	var tok string
+	if err := testDB.QueryRowContext(context.Background(), q, email, repoFullName).Scan(&tok); err != nil {
+		t.Fatalf("fetch unsubscribe token: %v", err)
+	}
+
+	return tok
+}
+
 func doGet(t *testing.T, client *http.Client, url string) *http.Response {
 	t.Helper()
 
@@ -284,15 +320,62 @@ func TestPostSubscribeDuplicate(t *testing.T) {
 	srv := newServer(t, &stubGitHubClient{repoExists: true})
 	body := `{"email":"user@example.com","repo":"cli/cli"}`
 
-	first := doPost(t, srv.Client(), srv.URL+"/api/subscribe", body)
-	if first.StatusCode != http.StatusOK {
-		t.Fatalf("first subscribe: expected %d, got %d", http.StatusOK, first.StatusCode)
-	}
+	t.Run("second_subscribe_before_confirm_refreshes", func(t *testing.T) {
+		t.Cleanup(func() { truncateTables(t) })
 
-	second := doPost(t, srv.Client(), srv.URL+"/api/subscribe", body)
-	if second.StatusCode != http.StatusConflict {
-		t.Fatalf("second subscribe: expected %d, got %d", http.StatusConflict, second.StatusCode)
-	}
+		first := doPost(t, srv.Client(), srv.URL+"/api/subscribe", body)
+		if first.StatusCode != http.StatusOK {
+			t.Fatalf("first subscribe: expected 200, got %d", first.StatusCode)
+		}
+
+		second := doPost(t, srv.Client(), srv.URL+"/api/subscribe", body)
+		if second.StatusCode != http.StatusOK {
+			t.Fatalf("second subscribe (unconfirmed): expected 200, got %d", second.StatusCode)
+		}
+	})
+
+	t.Run("subscribe_after_confirm_returns_409", func(t *testing.T) {
+		t.Cleanup(func() { truncateTables(t) })
+
+		first := doPost(t, srv.Client(), srv.URL+"/api/subscribe", body)
+		if first.StatusCode != http.StatusOK {
+			t.Fatalf("first subscribe: expected 200, got %d", first.StatusCode)
+		}
+
+		token := fetchConfirmToken(t, "user@example.com", "cli/cli")
+		confirm := doGet(t, srv.Client(), srv.URL+"/api/confirm/"+token)
+		if confirm.StatusCode != http.StatusOK {
+			t.Fatalf("confirm: expected 200, got %d", confirm.StatusCode)
+		}
+
+		second := doPost(t, srv.Client(), srv.URL+"/api/subscribe", body)
+		if second.StatusCode != http.StatusConflict {
+			t.Fatalf("subscribe after confirm: expected 409, got %d", second.StatusCode)
+		}
+	})
+
+	t.Run("subscribe_after_unsubscribe_reactivates", func(t *testing.T) {
+		t.Cleanup(func() { truncateTables(t) })
+
+		first := doPost(t, srv.Client(), srv.URL+"/api/subscribe", body)
+		if first.StatusCode != http.StatusOK {
+			t.Fatalf("first subscribe: expected 200, got %d", first.StatusCode)
+		}
+
+		confirmToken := fetchConfirmToken(t, "user@example.com", "cli/cli")
+		doGet(t, srv.Client(), srv.URL+"/api/confirm/"+confirmToken)
+
+		unsubToken := fetchUnsubscribeToken(t, "user@example.com", "cli/cli")
+		unsub := doGet(t, srv.Client(), srv.URL+"/api/unsubscribe/"+unsubToken)
+		if unsub.StatusCode != http.StatusOK {
+			t.Fatalf("unsubscribe: expected 200, got %d", unsub.StatusCode)
+		}
+
+		second := doPost(t, srv.Client(), srv.URL+"/api/subscribe", body)
+		if second.StatusCode != http.StatusOK {
+			t.Fatalf("subscribe after unsubscribe: expected 200, got %d", second.StatusCode)
+		}
+	})
 }
 
 func TestGetConfirm(t *testing.T) {
