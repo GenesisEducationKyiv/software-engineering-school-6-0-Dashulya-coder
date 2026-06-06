@@ -2,37 +2,41 @@ package scanner
 
 import (
 	"context"
-	"sync/atomic"
 	"testing"
 	"time"
 
-	"github.com/Dashulya-coder/CaseTaskNotifier/internal/release"
+	"github.com/stretchr/testify/mock"
 )
 
 type mockPoller struct {
-	calls atomic.Int32
+	mock.Mock
 }
 
-func (m *mockPoller) Poll(_ context.Context) {
-	m.calls.Add(1)
+func (m *mockPoller) Poll(ctx context.Context) {
+	m.Called(ctx)
 }
-
-var _ release.Poller = (*mockPoller)(nil)
 
 func TestScanner_Start_CallsPollOnTick(t *testing.T) {
-	p := &mockPoller{}
-	sc := New(p, 50*time.Millisecond)
+	done := make(chan struct{}, 10)
+	p := new(mockPoller)
+	p.On("Poll", mock.Anything).
+		Run(func(_ mock.Arguments) { done <- struct{}{} }).
+		Return()
+
+	sc := New(p, 10*time.Millisecond)
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
 	sc.Start(ctx)
 
-	time.Sleep(180 * time.Millisecond)
-	cancel()
-
-	got := p.calls.Load()
-	if got < 2 {
-		t.Fatalf("expected at least 2 Poll calls, got %d", got)
+	for i := 0; i < 2; i++ {
+		select {
+		case <-done:
+		case <-time.After(2 * time.Second):
+			t.Fatalf("Poll was not called in time (call %d)", i+1)
+		}
 	}
+
+	p.AssertExpectations(t)
 }
