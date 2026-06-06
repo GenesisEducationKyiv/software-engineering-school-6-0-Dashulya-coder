@@ -46,9 +46,11 @@ func Handler(next http.Handler) http.Handler {
 
 		next.ServeHTTP(rw, r)
 
+		const unmatchedPath = "unmatched"
+
 		path := chi.RouteContext(r.Context()).RoutePattern()
 		if path == "" {
-			path = r.URL.Path
+			path = unmatchedPath
 		}
 
 		status := strconv.Itoa(rw.status)
