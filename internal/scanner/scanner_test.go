@@ -2,10 +2,12 @@ package scanner
 
 import (
 	"context"
+	"fmt"
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/mock"
+	"github.com/stretchr/testify/require"
 )
 
 type mockPoller struct {
@@ -34,7 +36,7 @@ func TestScanner_Start_CallsPollOnTick(t *testing.T) {
 		select {
 		case <-done:
 		case <-time.After(2 * time.Second):
-			t.Fatalf("Poll was not called in time (call %d)", i+1)
+			require.Fail(t, fmt.Sprintf("Poll was not called in time (call %d)", i+1))
 		}
 	}
 
