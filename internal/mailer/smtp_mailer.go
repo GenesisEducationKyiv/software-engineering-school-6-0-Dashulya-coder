@@ -3,6 +3,8 @@ package mailer
 import (
 	"fmt"
 	"net/smtp"
+
+	appmetrics "github.com/Dashulya-coder/CaseTaskNotifier/internal/metrics"
 )
 
 type SMTPMailer struct {
@@ -36,7 +38,9 @@ func (m *SMTPMailer) SendConfirmation(email, confirmLink string) error {
 		confirmLink,
 	)
 
-	return m.send(email, body)
+	err := m.send(email, body)
+	recordEmail("confirmation", err)
+	return err
 }
 
 func (m *SMTPMailer) SendNewRelease(email, repo, tag, releaseURL, unsubscribeLink string) error {
@@ -50,7 +54,17 @@ func (m *SMTPMailer) SendNewRelease(email, repo, tag, releaseURL, unsubscribeLin
 		unsubscribeLink,
 	)
 
-	return m.send(email, body)
+	err := m.send(email, body)
+	recordEmail("release", err)
+	return err
+}
+
+func recordEmail(kind string, err error) {
+	status := "success"
+	if err != nil {
+		status = "failed"
+	}
+	appmetrics.EmailsSentTotal.WithLabelValues(kind, status).Inc()
 }
 
 func (m *SMTPMailer) send(to, msg string) error {
