@@ -10,6 +10,7 @@ import (
 
 	"github.com/Dashulya-coder/CaseTaskNotifier/internal/config"
 	"github.com/Dashulya-coder/CaseTaskNotifier/internal/github"
+	applogger "github.com/Dashulya-coder/CaseTaskNotifier/internal/logger"
 	httphandlers "github.com/Dashulya-coder/CaseTaskNotifier/internal/http/handlers"
 	httprouter "github.com/Dashulya-coder/CaseTaskNotifier/internal/http/router"
 	"github.com/Dashulya-coder/CaseTaskNotifier/internal/mailer"
@@ -31,10 +32,12 @@ const (
 )
 
 func Run() error {
-	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
-	slog.SetDefault(logger)
-
 	cfg := config.Load()
+
+	level := applogger.ParseLevel(cfg.LogLevel)
+	base := slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: level})
+	handler := applogger.NewSamplingHandler(base, uint64(cfg.LogSampleRate), slog.LevelDebug)
+	slog.SetDefault(slog.New(handler))
 
 	if err := RunMigrations(cfg.DatabaseURL); err != nil {
 		return err
