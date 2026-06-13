@@ -9,11 +9,28 @@ filebeat.inputs:
           fields: ["message"]
           target: ""
           overwrite_keys: true
+      - script:
+          lang: javascript
+          id: sample_debug
+          source: >
+            function process(event) {
+              var lvl = event.Get("level");
+              if (lvl === "DEBUG" && Math.random() >= 0.1) {
+                event.Cancel();
+              }
+            }
 
 output.elasticsearch:
   hosts: ["http://elasticsearch:9200"]
-  indices:
-    - index: "casetasknotifier-%{+yyyy.MM.dd}"
+
+setup.ilm.enabled: true
+setup.ilm.rollover_alias: "casetasknotifier"
+setup.ilm.policy_name: "casetasknotifier-policy"
+setup.ilm.policy_file: /usr/share/filebeat/ilm-policy.json
+
+setup.template.name: "casetasknotifier"
+setup.template.pattern: "casetasknotifier-*"
+setup.template.overwrite: true
 
 setup.kibana:
   host: "http://kibana:5601"
