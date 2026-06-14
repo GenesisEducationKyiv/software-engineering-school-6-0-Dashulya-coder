@@ -17,8 +17,11 @@ type mockSubscriptionRepository struct {
 	mock.Mock
 }
 
-func (m *mockSubscriptionRepository) Create(ctx context.Context, sub *subscription.Subscription) error {
-	return m.Called(ctx, sub).Error(0)
+func (m *mockSubscriptionRepository) UpsertPending(
+	ctx context.Context, sub *subscription.Subscription,
+) (bool, error) {
+	args := m.Called(ctx, sub)
+	return args.Bool(0), args.Error(1)
 }
 
 func (m *mockSubscriptionRepository) FindByConfirmToken(
@@ -49,13 +52,6 @@ func (m *mockSubscriptionRepository) GetByEmail(
 		return nil, args.Error(1)
 	}
 	return args.Get(0).([]subscription.Subscription), args.Error(1)
-}
-
-func (m *mockSubscriptionRepository) ExistsByEmailAndRepo(
-	ctx context.Context, email string, repoID int64,
-) (bool, error) {
-	args := m.Called(ctx, email, repoID)
-	return args.Bool(0), args.Error(1)
 }
 
 func (m *mockSubscriptionRepository) ConfirmByToken(ctx context.Context, token string) error {

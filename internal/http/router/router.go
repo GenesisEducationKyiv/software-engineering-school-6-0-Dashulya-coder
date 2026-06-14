@@ -7,10 +7,13 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 
 	"github.com/Dashulya-coder/CaseTaskNotifier/internal/http/handlers"
+	"github.com/Dashulya-coder/CaseTaskNotifier/internal/http/metrics"
 )
 
 func New(handler *handlers.SubscriptionHandler) http.Handler {
 	r := chi.NewRouter()
+
+	r.Use(metrics.Handler)
 
 	r.Get("/", func(w http.ResponseWriter, req *http.Request) {
 		http.ServeFile(w, req, "web/index.html")

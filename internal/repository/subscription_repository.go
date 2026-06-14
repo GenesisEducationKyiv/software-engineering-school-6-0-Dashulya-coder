@@ -9,17 +9,13 @@ import (
 	"github.com/Dashulya-coder/CaseTaskNotifier/internal/subscription"
 )
 
-// ErrNotFound is returned by repository methods when the requested record does not exist.
-// All implementations must return this error (not sql.ErrNoRows or similar) so callers
-// remain independent of the storage technology.
 var ErrNotFound = errors.New("record not found")
 
 type SubscriptionRepository interface {
-	Create(ctx context.Context, sub *subscription.Subscription) error
+	UpsertPending(ctx context.Context, sub *subscription.Subscription) (alreadyActive bool, err error)
 	FindByConfirmToken(ctx context.Context, token string) (*subscription.Subscription, error)
 	FindByUnsubscribeToken(ctx context.Context, token string) (*subscription.Subscription, error)
 	GetByEmail(ctx context.Context, email string) ([]subscription.Subscription, error)
-	ExistsByEmailAndRepo(ctx context.Context, email string, repoID int64) (bool, error)
 	ConfirmByToken(ctx context.Context, token string) error
 	DeactivateByToken(ctx context.Context, token string) error
 	GetAllConfirmedActive(ctx context.Context) ([]subscription.Subscription, error)
@@ -34,35 +30,42 @@ func NewSubscriptionRepository(db *sql.DB) *SubscriptionRepositoryImpl {
 	return &SubscriptionRepositoryImpl{db: db}
 }
 
-func (r *SubscriptionRepositoryImpl) Create(
+func (r *SubscriptionRepositoryImpl) UpsertPending(
 	ctx context.Context,
 	sub *subscription.Subscription,
-) error {
+) (bool, error) {
 	query := `
 		INSERT INTO subscriptions (
-			email,
-			repository_id,
-			confirm_token,
-			unsubscribe_token
+			email, repository_id, confirm_token, unsubscribe_token,
+			confirmed, active, created_at, updated_at
 		)
-		VALUES ($1, $2, $3, $4)
-		RETURNING id, confirmed, active, created_at, updated_at
+		VALUES ($1, $2, $3, $4, FALSE, TRUE, NOW(), NOW())
+		ON CONFLICT (email, repository_id) DO UPDATE
+		SET confirm_token     = EXCLUDED.confirm_token,
+		    unsubscribe_token = EXCLUDED.unsubscribe_token,
+		    confirmed         = FALSE,
+		    active            = TRUE,
+		    updated_at        = NOW()
+		WHERE subscriptions.confirmed = FALSE
+		   OR subscriptions.active   = FALSE
+		RETURNING id, confirm_token, unsubscribe_token
 	`
 
-	return r.db.QueryRowContext(
-		ctx,
-		query,
+	err := r.db.QueryRowContext(
+		ctx, query,
 		sub.Email,
 		sub.RepositoryID,
 		sub.ConfirmToken,
 		sub.UnsubscribeToken,
-	).Scan(
-		&sub.ID,
-		&sub.Confirmed,
-		&sub.Active,
-		&sub.CreatedAt,
-		&sub.UpdatedAt,
-	)
+	).Scan(&sub.ID, &sub.ConfirmToken, &sub.UnsubscribeToken)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return true, nil
+		}
+		return false, err
+	}
+
+	return false, nil
 }
 
 func (r *SubscriptionRepositoryImpl) FindByConfirmToken(
@@ -185,28 +188,6 @@ func (r *SubscriptionRepositoryImpl) GetByEmail(
 	}
 
 	return subs, nil
-}
-
-func (r *SubscriptionRepositoryImpl) ExistsByEmailAndRepo(
-	ctx context.Context,
-	email string,
-	repoID int64,
-) (bool, error) {
-	query := `
-		SELECT EXISTS (
-			SELECT 1
-			FROM subscriptions
-			WHERE email = $1 AND repository_id = $2
-		)
-	`
-
-	var exists bool
-	err := r.db.QueryRowContext(ctx, query, email, repoID).Scan(&exists)
-	if err != nil {
-		return false, err
-	}
-
-	return exists, nil
 }
 
 func (r *SubscriptionRepositoryImpl) ConfirmByToken(

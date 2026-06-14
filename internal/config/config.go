@@ -8,15 +8,17 @@ import (
 )
 
 type Config struct {
-	Port         string
-	DatabaseURL  string
-	GithubToken  string
-	SMTPHost     string
-	SMTPPort     int
-	SMTPUser     string
-	SMTPPass     string
-	BaseURL      string
-	ScanInterval time.Duration
+	Port          string
+	DatabaseURL   string
+	GithubToken   string
+	SMTPHost      string
+	SMTPPort      int
+	SMTPUser      string
+	SMTPPass      string
+	BaseURL       string
+	ScanInterval  time.Duration
+	LogLevel      string
+	LogSampleRate uint64
 }
 
 func Load() *Config {
@@ -30,16 +32,23 @@ func Load() *Config {
 		log.Fatal("invalid SCAN_INTERVAL")
 	}
 
+	logSampleRate, err := strconv.ParseUint(getEnv("LOG_SAMPLE_RATE", "10"), 10, 64)
+	if err != nil || logSampleRate < 1 {
+		log.Fatal("invalid LOG_SAMPLE_RATE")
+	}
+
 	cfg := &Config{
-		Port:         getEnv("PORT", "8080"),
-		DatabaseURL:  getEnv("DATABASE_URL", ""),
-		GithubToken:  os.Getenv("GITHUB_TOKEN"),
-		SMTPHost:     os.Getenv("SMTP_HOST"),
-		SMTPPort:     smtpPort,
-		SMTPUser:     os.Getenv("SMTP_USER"),
-		SMTPPass:     os.Getenv("SMTP_PASS"),
-		BaseURL:      getEnv("BASE_URL", "http://localhost:8080"),
-		ScanInterval: scanInterval,
+		Port:          getEnv("PORT", "8080"),
+		DatabaseURL:   getEnv("DATABASE_URL", ""),
+		GithubToken:   os.Getenv("GITHUB_TOKEN"),
+		SMTPHost:      os.Getenv("SMTP_HOST"),
+		SMTPPort:      smtpPort,
+		SMTPUser:      os.Getenv("SMTP_USER"),
+		SMTPPass:      os.Getenv("SMTP_PASS"),
+		BaseURL:       getEnv("BASE_URL", "http://localhost:8080"),
+		ScanInterval:  scanInterval,
+		LogLevel:      getEnv("LOG_LEVEL", "info"),
+		LogSampleRate: logSampleRate,
 	}
 
 	if cfg.DatabaseURL == "" {

@@ -5,8 +5,11 @@ import (
 	"errors"
 	"log/slog"
 
+	"github.com/prometheus/client_golang/prometheus"
+
 	"github.com/Dashulya-coder/CaseTaskNotifier/internal/github"
 	"github.com/Dashulya-coder/CaseTaskNotifier/internal/mailer"
+	appmetrics "github.com/Dashulya-coder/CaseTaskNotifier/internal/metrics"
 	"github.com/Dashulya-coder/CaseTaskNotifier/internal/repo"
 	"github.com/Dashulya-coder/CaseTaskNotifier/internal/repository"
 	"github.com/Dashulya-coder/CaseTaskNotifier/internal/subscription"
@@ -42,7 +45,11 @@ func NewPoller(
 }
 
 func (p *PollerImpl) Poll(ctx context.Context) {
-	slog.Info("scanner: checking for new releases")
+	slog.Debug("scanner: checking for new releases")
+
+	appmetrics.ScanCyclesTotal.Inc()
+	timer := prometheus.NewTimer(appmetrics.ScanDurationSeconds)
+	defer timer.ObserveDuration()
 
 	subs, err := p.subRepo.GetAllConfirmedActive(ctx)
 	if err != nil {
@@ -51,9 +58,11 @@ func (p *PollerImpl) Poll(ctx context.Context) {
 	}
 
 	if len(subs) == 0 {
-		slog.Info("scanner: no confirmed active subscriptions found")
+		slog.Debug("scanner: no confirmed active subscriptions found")
 		return
 	}
+
+	slog.Debug("scanner: subscriptions to check", "count", len(subs))
 
 	for repoID, repoSubs := range groupByRepoID(subs) {
 		p.processRepo(ctx, repoID, repoSubs)
@@ -61,6 +70,8 @@ func (p *PollerImpl) Poll(ctx context.Context) {
 }
 
 func (p *PollerImpl) processRepo(ctx context.Context, repoID int64, subs []subscription.Subscription) {
+	slog.Debug("scanner: processing repo", "repo_id", repoID, "subscribers", len(subs))
+
 	r, err := p.repoRepo.GetByID(ctx, repoID)
 	if err != nil {
 		slog.Error("scanner: get repo by id error", "repo_id", repoID, "error", err)
@@ -94,10 +105,11 @@ func (p *PollerImpl) processRepo(ctx context.Context, repoID int64, subs []subsc
 	}
 
 	if *r.LastSeenTag == tag {
-		slog.Info("scanner: no new release", "repo", r.FullName)
+		slog.Debug("scanner: no new release", "repo", r.FullName)
 		return
 	}
 
+	appmetrics.ReleasesDetectedTotal.Inc()
 	p.notifySubscribers(r, subs, tag, releaseURL)
 
 	if err := p.repoRepo.UpdateLastSeenTag(ctx, r.ID, tag, releaseURL); err != nil {
