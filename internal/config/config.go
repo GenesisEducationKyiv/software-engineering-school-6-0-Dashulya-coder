@@ -18,7 +18,7 @@ type Config struct {
 	BaseURL       string
 	ScanInterval  time.Duration
 	LogLevel      string
-	LogSampleRate int
+	LogSampleRate uint64
 }
 
 func Load() *Config {
@@ -32,7 +32,7 @@ func Load() *Config {
 		log.Fatal("invalid SCAN_INTERVAL")
 	}
 
-	logSampleRate, err := strconv.Atoi(getEnv("LOG_SAMPLE_RATE", "10"))
+	logSampleRate, err := strconv.ParseUint(getEnv("LOG_SAMPLE_RATE", "10"), 10, 64)
 	if err != nil || logSampleRate < 1 {
 		log.Fatal("invalid LOG_SAMPLE_RATE")
 	}
