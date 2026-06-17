@@ -1,0 +1,85 @@
+package app
+
+import (
+	"context"
+	"fmt"
+	"log/slog"
+	"net"
+	"os"
+	"os/signal"
+	"syscall"
+
+	"buf.build/go/protovalidate"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/health"
+	"google.golang.org/grpc/health/grpc_health_v1"
+
+	notificationv1 "github.com/Dashulya-coder/CaseTaskNotifier/gen/notification/v1"
+	"github.com/Dashulya-coder/CaseTaskNotifier/internal/notifier/config"
+	"github.com/Dashulya-coder/CaseTaskNotifier/internal/notifier/delivery"
+	"github.com/Dashulya-coder/CaseTaskNotifier/internal/notifier/server"
+	"github.com/Dashulya-coder/CaseTaskNotifier/internal/notifier/smtp"
+	"github.com/Dashulya-coder/CaseTaskNotifier/internal/notifier/store"
+)
+
+func Run() error {
+	cfg := config.Load()
+
+	if err := RunMigrations(cfg.DatabaseURL); err != nil {
+		return err
+	}
+
+	db, err := ConnectDB(cfg.DatabaseURL)
+	if err != nil {
+		return err
+	}
+	defer func() {
+		if err := db.Close(); err != nil {
+			slog.Error("failed to close db", "error", err)
+		}
+	}()
+
+	slog.Info("notifier database connected successfully")
+
+	validator, err := protovalidate.New()
+	if err != nil {
+		return fmt.Errorf("create validator: %w", err)
+	}
+
+	ledger := store.NewLedger(db)
+	sender := smtp.NewClient(cfg.SMTPHost, cfg.SMTPPort, cfg.SMTPUser, cfg.SMTPPass, cfg.SMTPFrom)
+	svc := delivery.New(ledger, sender)
+	srv := server.New(svc, validator)
+
+	grpcServer := grpc.NewServer(
+		grpc.ChainUnaryInterceptor(server.RecoveryInterceptor, server.TraceInterceptor),
+	)
+	notificationv1.RegisterNotificationServiceServer(grpcServer, srv)
+
+	healthServer := health.NewServer()
+	grpc_health_v1.RegisterHealthServer(grpcServer, healthServer)
+	healthServer.SetServingStatus("", grpc_health_v1.HealthCheckResponse_SERVING)
+
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
+
+	var lc net.ListenConfig
+	lis, err := lc.Listen(ctx, "tcp", ":"+cfg.GRPCPort)
+	if err != nil {
+		return fmt.Errorf("listen: %w", err)
+	}
+
+	go func() {
+		<-ctx.Done()
+		slog.Info("notifier shutting down")
+		grpcServer.GracefulStop()
+	}()
+
+	slog.Info("notifier grpc server started", "port", cfg.GRPCPort)
+
+	if err := grpcServer.Serve(lis); err != nil {
+		return fmt.Errorf("serve: %w", err)
+	}
+
+	return nil
+}
