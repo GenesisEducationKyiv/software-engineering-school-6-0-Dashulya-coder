@@ -5,7 +5,9 @@ import (
 	"errors"
 	"testing"
 
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
+	"github.com/stretchr/testify/require"
 
 	"github.com/Dashulya-coder/CaseTaskNotifier/internal/repo"
 	"github.com/Dashulya-coder/CaseTaskNotifier/internal/urlbuilder"
@@ -15,8 +17,9 @@ type mockSubscriptionStore struct {
 	mock.Mock
 }
 
-func (m *mockSubscriptionStore) Create(ctx context.Context, sub *Subscription) error {
-	return m.Called(ctx, sub).Error(0)
+func (m *mockSubscriptionStore) UpsertPending(ctx context.Context, sub *Subscription) (bool, error) {
+	args := m.Called(ctx, sub)
+	return args.Bool(0), args.Error(1)
 }
 
 func (m *mockSubscriptionStore) FindByConfirmToken(ctx context.Context, token string) (*Subscription, error) {
@@ -41,11 +44,6 @@ func (m *mockSubscriptionStore) GetByEmail(ctx context.Context, email string) ([
 		return nil, args.Error(1)
 	}
 	return args.Get(0).([]Subscription), args.Error(1)
-}
-
-func (m *mockSubscriptionStore) ExistsByEmailAndRepo(ctx context.Context, email string, repoID int64) (bool, error) {
-	args := m.Called(ctx, email, repoID)
-	return args.Bool(0), args.Error(1)
 }
 
 func (m *mockSubscriptionStore) ConfirmByToken(ctx context.Context, token string) error {
@@ -125,25 +123,22 @@ func TestSubscribe_Success(t *testing.T) {
 	ghClient.On("RepositoryExists", mock.Anything, "golang", "go").Return(true, nil).Once()
 	repoStore.On("FindOrCreate", mock.Anything, "golang", "go", "golang/go").
 		Return(&repo.Repository{ID: 1, FullName: "golang/go", Owner: "golang", Name: "go"}, nil).Once()
-	subStore.On("ExistsByEmailAndRepo", mock.Anything, "test@example.com", int64(1)).Return(false, nil).Once()
 	tokenGen.On("Generate").Return("confirm-token", nil).Once()
 	tokenGen.On("Generate").Return("unsub-token", nil).Once()
-	subStore.On("Create", mock.Anything, mock.MatchedBy(func(sub *Subscription) bool {
+	subStore.On("UpsertPending", mock.Anything, mock.MatchedBy(func(sub *Subscription) bool {
 		return sub.Email == "test@example.com" &&
 			sub.RepositoryID == 1 &&
 			sub.ConfirmToken != "" &&
 			sub.UnsubscribeToken != ""
-	})).Return(nil).Once()
+	})).Return(false, nil).Once()
 	mailerMock.On("SendConfirmation", "test@example.com", mock.MatchedBy(func(link string) bool {
 		return link != ""
 	})).Return(nil).Once()
 
 	svc := NewSubscriptionService(subStore, repoStore, ghClient, mailerMock, newTestURLs(), tokenGen)
-	if err := svc.Subscribe(context.Background(), "test@example.com", "golang/go"); err != nil {
-		t.Fatalf("Subscribe() unexpected error: %v", err)
-	}
+	require.NoError(t, svc.Subscribe(context.Background(), "test@example.com", "golang/go"))
 
-	subStore.AssertNumberOfCalls(t, "Create", 1)
+	subStore.AssertNumberOfCalls(t, "UpsertPending", 1)
 	mailerMock.AssertNumberOfCalls(t, "SendConfirmation", 1)
 	subStore.AssertExpectations(t)
 	repoStore.AssertExpectations(t)
@@ -157,9 +152,7 @@ func TestSubscribe_InvalidEmail(t *testing.T) {
 		new(mockSubscriptionStore), new(mockRepoStore), new(mockGitHubClient),
 		new(mockMailer), newTestURLs(), new(mockTokenGenerator),
 	)
-	if err := svc.Subscribe(context.Background(), "bad-email", "golang/go"); !errors.Is(err, ErrInvalidEmail) {
-		t.Fatalf("expected ErrInvalidEmail, got %v", err)
-	}
+	require.ErrorIs(t, svc.Subscribe(context.Background(), "bad-email", "golang/go"), ErrInvalidEmail)
 }
 
 func TestSubscribe_InvalidRepo(t *testing.T) {
@@ -167,9 +160,7 @@ func TestSubscribe_InvalidRepo(t *testing.T) {
 		new(mockSubscriptionStore), new(mockRepoStore), new(mockGitHubClient),
 		new(mockMailer), newTestURLs(), new(mockTokenGenerator),
 	)
-	if err := svc.Subscribe(context.Background(), "test@example.com", "wrongformat"); !errors.Is(err, ErrInvalidRepo) {
-		t.Fatalf("expected ErrInvalidRepo, got %v", err)
-	}
+	require.ErrorIs(t, svc.Subscribe(context.Background(), "test@example.com", "wrongformat"), ErrInvalidRepo)
 }
 
 func TestSubscribe_RepoNotFound(t *testing.T) {
@@ -180,9 +171,7 @@ func TestSubscribe_RepoNotFound(t *testing.T) {
 		new(mockSubscriptionStore), new(mockRepoStore), ghClient,
 		new(mockMailer), newTestURLs(), new(mockTokenGenerator),
 	)
-	if err := svc.Subscribe(context.Background(), "test@example.com", "owner/repo"); !errors.Is(err, ErrRepoNotFound) {
-		t.Fatalf("expected ErrRepoNotFound, got %v", err)
-	}
+	require.ErrorIs(t, svc.Subscribe(context.Background(), "test@example.com", "owner/repo"), ErrRepoNotFound)
 	ghClient.AssertExpectations(t)
 }
 
@@ -190,20 +179,48 @@ func TestSubscribe_AlreadySubscribed(t *testing.T) {
 	subStore := new(mockSubscriptionStore)
 	repoStore := new(mockRepoStore)
 	ghClient := new(mockGitHubClient)
+	tokenGen := new(mockTokenGenerator)
 
 	ghClient.On("RepositoryExists", mock.Anything, "golang", "go").Return(true, nil).Once()
 	repoStore.On("FindOrCreate", mock.Anything, "golang", "go", "golang/go").
 		Return(&repo.Repository{ID: 1, FullName: "golang/go", Owner: "golang", Name: "go"}, nil).Once()
-	subStore.On("ExistsByEmailAndRepo", mock.Anything, "test@example.com", int64(1)).Return(true, nil).Once()
+	tokenGen.On("Generate").Return("confirm-token", nil).Once()
+	tokenGen.On("Generate").Return("unsub-token", nil).Once()
+	subStore.On("UpsertPending", mock.Anything, mock.Anything).Return(true, nil).Once()
 
-	svc := NewSubscriptionService(subStore, repoStore, ghClient, new(mockMailer), newTestURLs(), new(mockTokenGenerator))
-	if err := svc.Subscribe(context.Background(), "test@example.com", "golang/go"); !errors.Is(err, ErrAlreadySubscribed) {
-		t.Fatalf("expected ErrAlreadySubscribed, got %v", err)
-	}
-	subStore.AssertNumberOfCalls(t, "Create", 0)
+	svc := NewSubscriptionService(subStore, repoStore, ghClient, new(mockMailer), newTestURLs(), tokenGen)
+	require.ErrorIs(t, svc.Subscribe(context.Background(), "test@example.com", "golang/go"), ErrAlreadySubscribed)
+
+	subStore.AssertNumberOfCalls(t, "UpsertPending", 1)
 	subStore.AssertExpectations(t)
 	repoStore.AssertExpectations(t)
 	ghClient.AssertExpectations(t)
+	tokenGen.AssertExpectations(t)
+}
+
+func TestSubscribe_ReSubscribeAfterUnsubscribe(t *testing.T) {
+	subStore := new(mockSubscriptionStore)
+	repoStore := new(mockRepoStore)
+	ghClient := new(mockGitHubClient)
+	mailerMock := new(mockMailer)
+	tokenGen := new(mockTokenGenerator)
+
+	ghClient.On("RepositoryExists", mock.Anything, "golang", "go").Return(true, nil).Once()
+	repoStore.On("FindOrCreate", mock.Anything, "golang", "go", "golang/go").
+		Return(&repo.Repository{ID: 1, FullName: "golang/go", Owner: "golang", Name: "go"}, nil).Once()
+	tokenGen.On("Generate").Return("new-confirm-token", nil).Once()
+	tokenGen.On("Generate").Return("new-unsub-token", nil).Once()
+	subStore.On("UpsertPending", mock.Anything, mock.Anything).Return(false, nil).Once()
+	mailerMock.On("SendConfirmation", "test@example.com", mock.MatchedBy(func(link string) bool {
+		return link != ""
+	})).Return(nil).Once()
+
+	svc := NewSubscriptionService(subStore, repoStore, ghClient, mailerMock, newTestURLs(), tokenGen)
+	require.NoError(t, svc.Subscribe(context.Background(), "test@example.com", "golang/go"))
+
+	subStore.AssertExpectations(t)
+	mailerMock.AssertExpectations(t)
+	tokenGen.AssertExpectations(t)
 }
 
 func TestConfirm(t *testing.T) {
@@ -258,8 +275,10 @@ func TestConfirm(t *testing.T) {
 				new(mockMailer), newTestURLs(), new(mockTokenGenerator),
 			)
 			err := svc.Confirm(context.Background(), tc.token)
-			if !errors.Is(err, tc.expectedErr) {
-				t.Fatalf("expected %v, got %v", tc.expectedErr, err)
+			if tc.expectedErr != nil {
+				require.ErrorIs(t, err, tc.expectedErr)
+			} else {
+				require.NoError(t, err)
 			}
 			subStore.AssertExpectations(t)
 		})
@@ -315,8 +334,10 @@ func TestUnsubscribe(t *testing.T) {
 				new(mockMailer), newTestURLs(), new(mockTokenGenerator),
 			)
 			err := svc.Unsubscribe(context.Background(), tc.token)
-			if !errors.Is(err, tc.expectedErr) {
-				t.Fatalf("expected %v, got %v", tc.expectedErr, err)
+			if tc.expectedErr != nil {
+				require.ErrorIs(t, err, tc.expectedErr)
+			} else {
+				require.NoError(t, err)
 			}
 			subStore.AssertExpectations(t)
 		})
@@ -366,7 +387,7 @@ func TestGetSubscriptionsByEmail(t *testing.T) {
 			subStore := new(mockSubscriptionStore)
 			repoStore := new(mockRepoStore)
 
-			if tc.expectedErr != ErrInvalidEmail {
+			if !errors.Is(tc.expectedErr, ErrInvalidEmail) {
 				subStore.On("GetByEmail", mock.Anything, tc.email).
 					Return(tc.subsResult, tc.subsErr).Once()
 				for _, sub := range tc.subsResult {
@@ -380,12 +401,12 @@ func TestGetSubscriptionsByEmail(t *testing.T) {
 				new(mockMailer), newTestURLs(), new(mockTokenGenerator),
 			)
 			result, err := svc.GetSubscriptionsByEmail(context.Background(), tc.email)
-			if !errors.Is(err, tc.expectedErr) {
-				t.Fatalf("expected error %v, got %v", tc.expectedErr, err)
+			if tc.expectedErr != nil {
+				require.ErrorIs(t, err, tc.expectedErr)
+			} else {
+				require.NoError(t, err)
 			}
-			if len(result) != tc.expectedLen {
-				t.Fatalf("expected %d subscriptions, got %d", tc.expectedLen, len(result))
-			}
+			assert.Len(t, result, tc.expectedLen)
 			subStore.AssertExpectations(t)
 			repoStore.AssertExpectations(t)
 		})

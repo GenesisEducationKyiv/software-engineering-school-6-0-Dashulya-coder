@@ -9,6 +9,8 @@ import (
 	"net/http"
 	"strings"
 	"time"
+
+	appmetrics "github.com/Dashulya-coder/CaseTaskNotifier/internal/metrics"
 )
 
 const githubClientTimeout = 10 * time.Second
@@ -73,6 +75,7 @@ func (c *ClientImpl) RepositoryExists(ctx context.Context, owner, repo string) (
 		return false, nil
 	case http.StatusTooManyRequests, http.StatusForbidden:
 		if isRateLimited(resp) {
+			appmetrics.GitHubRateLimitHitsTotal.Inc()
 			return false, ErrRateLimited
 		}
 		return false, fmt.Errorf("%w: %d", ErrUnexpectedStatus, resp.StatusCode)
@@ -87,6 +90,8 @@ func (c *ClientImpl) GetLatestRelease(
 	repo string,
 ) (tagName, htmlURL string, err error) {
 	endpoint := fmt.Sprintf("%s/repos/%s/%s/releases/latest", c.baseURL, owner, repo)
+
+	slog.Debug("github: requesting latest release", "owner", owner, "repo", repo)
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, endpoint, http.NoBody)
 	if err != nil {
@@ -116,6 +121,7 @@ func (c *ClientImpl) GetLatestRelease(
 		return "", "", ErrNoReleases
 	case http.StatusTooManyRequests, http.StatusForbidden:
 		if isRateLimited(resp) {
+			appmetrics.GitHubRateLimitHitsTotal.Inc()
 			return "", "", ErrRateLimited
 		}
 		return "", "", fmt.Errorf("%w: %d", ErrUnexpectedStatus, resp.StatusCode)

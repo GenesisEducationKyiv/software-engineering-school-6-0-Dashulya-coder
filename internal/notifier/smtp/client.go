@@ -3,6 +3,8 @@ package smtp
 import (
 	"fmt"
 	"net/smtp"
+
+	"github.com/Dashulya-coder/CaseTaskNotifier/internal/notifier/metrics"
 )
 
 type Client struct {
@@ -30,7 +32,9 @@ func (c *Client) SendConfirm(email, confirmURL string) error {
 		confirmURL,
 	)
 
-	return c.send(email, body)
+	err := c.send(email, body)
+	metrics.RecordEmail("confirmation", err)
+	return err
 }
 
 func (c *Client) SendRelease(email, repoFullName, tag, releaseURL, unsubscribeURL string) error {
@@ -39,7 +43,9 @@ func (c *Client) SendRelease(email, repoFullName, tag, releaseURL, unsubscribeUR
 
 	body := fmt.Sprintf(format, repoFullName, repoFullName, tag, releaseURL, unsubscribeURL)
 
-	return c.send(email, body)
+	err := c.send(email, body)
+	metrics.RecordEmail("release", err)
+	return err
 }
 
 func (c *Client) send(to, msg string) error {

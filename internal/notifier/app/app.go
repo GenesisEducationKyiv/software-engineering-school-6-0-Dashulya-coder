@@ -2,14 +2,18 @@ package app
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 	"net"
+	"net/http"
 	"os"
 	"os/signal"
 	"syscall"
+	"time"
 
 	"buf.build/go/protovalidate"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/health"
 	"google.golang.org/grpc/health/grpc_health_v1"
@@ -20,6 +24,11 @@ import (
 	"github.com/Dashulya-coder/CaseTaskNotifier/internal/notifier/server"
 	"github.com/Dashulya-coder/CaseTaskNotifier/internal/notifier/smtp"
 	"github.com/Dashulya-coder/CaseTaskNotifier/internal/notifier/store"
+)
+
+const (
+	readHeaderTimeout = 5 * time.Second
+	shutdownTimeout   = 10 * time.Second
 )
 
 func Run() error {
@@ -69,10 +78,32 @@ func Run() error {
 		return fmt.Errorf("listen: %w", err)
 	}
 
+	mux := http.NewServeMux()
+	mux.Handle("/metrics", promhttp.Handler())
+	metricsServer := &http.Server{
+		Addr:              ":" + cfg.MetricsPort,
+		Handler:           mux,
+		ReadHeaderTimeout: readHeaderTimeout,
+	}
+
+	go func() {
+		slog.Info("notifier metrics server started", "port", cfg.MetricsPort)
+		if err := metricsServer.ListenAndServe(); err != nil &&
+			!errors.Is(err, http.ErrServerClosed) {
+			slog.Error("metrics server error", "error", err)
+		}
+	}()
+
 	go func() {
 		<-ctx.Done()
 		slog.Info("notifier shutting down")
 		grpcServer.GracefulStop()
+
+		shutdownCtx, cancel := context.WithTimeout(context.Background(), shutdownTimeout)
+		defer cancel()
+		if err := metricsServer.Shutdown(shutdownCtx); err != nil {
+			slog.Error("metrics server shutdown error", "error", err)
+		}
 	}()
 
 	slog.Info("notifier grpc server started", "port", cfg.GRPCPort)

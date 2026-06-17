@@ -21,11 +21,10 @@ var (
 )
 
 type SubscriptionStore interface {
-	Create(ctx context.Context, sub *Subscription) error
+	UpsertPending(ctx context.Context, sub *Subscription) (alreadyActive bool, err error)
 	FindByConfirmToken(ctx context.Context, token string) (*Subscription, error)
 	FindByUnsubscribeToken(ctx context.Context, token string) (*Subscription, error)
 	GetByEmail(ctx context.Context, email string) ([]Subscription, error)
-	ExistsByEmailAndRepo(ctx context.Context, email string, repoID int64) (bool, error)
 	ConfirmByToken(ctx context.Context, token string) error
 	DeactivateByToken(ctx context.Context, token string) error
 }
@@ -97,14 +96,6 @@ func (s *SubscriptionServiceImpl) Subscribe(ctx context.Context, email, fullName
 		return err
 	}
 
-	existsSub, err := s.subRepo.ExistsByEmailAndRepo(ctx, email, dbRepo.ID)
-	if err != nil {
-		return err
-	}
-	if existsSub {
-		return ErrAlreadySubscribed
-	}
-
 	confirmToken, err := s.tokenGen.Generate()
 	if err != nil {
 		return err
@@ -122,8 +113,12 @@ func (s *SubscriptionServiceImpl) Subscribe(ctx context.Context, email, fullName
 		UnsubscribeToken: unsubscribeToken,
 	}
 
-	if err := s.subRepo.Create(ctx, sub); err != nil {
+	alreadyActive, err := s.subRepo.UpsertPending(ctx, sub)
+	if err != nil {
 		return err
+	}
+	if alreadyActive {
+		return ErrAlreadySubscribed
 	}
 
 	return s.mailer.SendConfirmation(email, s.urls.ConfirmURL(sub.ConfirmToken))

@@ -8,6 +8,7 @@ import (
 
 type Config struct {
 	GRPCPort    string
+	MetricsPort string
 	DatabaseURL string
 	SMTPHost    string
 	SMTPPort    int
@@ -23,7 +24,8 @@ func Load() *Config {
 	}
 
 	cfg := &Config{
-		GRPCPort:    getEnv("GRPC_PORT", "9090"),
+		GRPCPort:    getEnv("GRPC_PORT", "9091"),
+		MetricsPort: getEnv("METRICS_PORT", "9092"),
 		DatabaseURL: getEnv("DATABASE_URL", ""),
 		SMTPHost:    os.Getenv("SMTP_HOST"),
 		SMTPPort:    smtpPort,

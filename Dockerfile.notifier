@@ -10,7 +10,7 @@ WORKDIR /app
 RUN apk add --no-cache netcat-openbsd
 COPY --from=builder /notifier .
 COPY migrations_notifier/ migrations_notifier/
-EXPOSE 9090
+EXPOSE 9091 9092
 HEALTHCHECK --interval=10s --timeout=3s --retries=5 \
-    CMD nc -z localhost 9090 || exit 1
+    CMD nc -z localhost 9091 || exit 1
 CMD ["/app/notifier"]
