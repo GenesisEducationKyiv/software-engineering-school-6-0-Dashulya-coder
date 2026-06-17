@@ -1,0 +1,16 @@
+FROM golang:1.24-alpine AS builder
+WORKDIR /app
+COPY go.mod go.sum ./
+RUN go mod download
+COPY . .
+RUN CGO_ENABLED=0 GOOS=linux go build -o /notifier ./cmd/notifier/
+
+FROM alpine:3.20
+WORKDIR /app
+RUN apk add --no-cache netcat-openbsd
+COPY --from=builder /notifier .
+COPY migrations_notifier/ migrations_notifier/
+EXPOSE 9090
+HEALTHCHECK --interval=10s --timeout=3s --retries=5 \
+    CMD nc -z localhost 9090 || exit 1
+CMD ["/app/notifier"]
