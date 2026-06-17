@@ -5,6 +5,12 @@ includes:
     optional: true
 
 tasks:
+  proto:gen:
+    desc: Generate Go code from proto definitions
+    cmds:
+      - buf dep update
+      - buf generate
+
   ops:setup:
     desc: Sync ops config
     cmds:

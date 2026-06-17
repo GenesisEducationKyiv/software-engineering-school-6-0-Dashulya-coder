@@ -1,0 +1,29 @@
+syntax = "proto3";
+
+package notification.v1;
+
+import "buf/validate/validate.proto";
+
+option go_package = "github.com/Dashulya-coder/CaseTaskNotifier/gen/notification/v1;notificationv1";
+
+service NotificationService {
+  rpc SendConfirm(SendConfirmRequest) returns (SendResponse);
+  rpc SendRelease(SendReleaseRequest) returns (SendResponse);
+}
+
+message SendConfirmRequest {
+  string email = 1 [(buf.validate.field).string.email = true];
+  string confirm_url = 2 [(buf.validate.field).string.uri = true];
+}
+
+message SendReleaseRequest {
+  string email = 1 [(buf.validate.field).string.email = true];
+  string repo_full_name = 2 [(buf.validate.field).string.min_len = 1];
+  string tag = 3 [(buf.validate.field).string.min_len = 1];
+  string release_url = 4 [(buf.validate.field).string.uri = true];
+  string unsubscribe_url = 5 [(buf.validate.field).string.uri = true];
+}
+
+message SendResponse {
+  bool delivered = 1;
+}
