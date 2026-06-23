@@ -9,7 +9,7 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
-	"github.com/Dashulya-coder/CaseTaskNotifier/internal/notifier/delivery"
+	"github.com/Dashulya-coder/CaseTaskNotifier/notifier/internal/delivery"
 )
 
 var errBoom = errors.New("boom")

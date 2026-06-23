@@ -16,8 +16,8 @@ import (
 	"google.golang.org/grpc/status"
 	"google.golang.org/grpc/test/bufconn"
 
-	notificationv1 "github.com/Dashulya-coder/CaseTaskNotifier/gen/notification/v1"
-	"github.com/Dashulya-coder/CaseTaskNotifier/internal/notifier/server"
+	notificationv1 "github.com/Dashulya-coder/CaseTaskNotifier/notifier/gen/notification/v1"
+	"github.com/Dashulya-coder/CaseTaskNotifier/notifier/internal/server"
 )
 
 const bufSize = 1024 * 1024

@@ -10,7 +10,7 @@ import (
 )
 
 func RunMigrations(databaseURL string) error {
-	m, err := migrate.New("file://migrations_notifier", databaseURL)
+	m, err := migrate.New("file://migrations", databaseURL)
 	if err != nil {
 		return fmt.Errorf("create migrate instance: %w", err)
 	}

@@ -8,7 +8,7 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 
-	notificationv1 "github.com/Dashulya-coder/CaseTaskNotifier/gen/notification/v1"
+	notificationv1 "github.com/Dashulya-coder/CaseTaskNotifier/notifier/gen/notification/v1"
 	"github.com/Dashulya-coder/CaseTaskNotifier/internal/mailer"
 )
 

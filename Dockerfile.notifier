@@ -3,13 +3,13 @@ WORKDIR /app
 COPY go.mod go.sum ./
 RUN go mod download
 COPY . .
-RUN CGO_ENABLED=0 GOOS=linux go build -o /notifier ./cmd/notifier/
+RUN CGO_ENABLED=0 GOOS=linux go build -o /notifier ./notifier/main/
 
 FROM alpine:3.20
 WORKDIR /app
 RUN apk add --no-cache netcat-openbsd
 COPY --from=builder /notifier .
-COPY migrations_notifier/ migrations_notifier/
+COPY notifier/migrations/ migrations/
 EXPOSE 9091 9092
 HEALTHCHECK --interval=10s --timeout=3s --retries=5 \
     CMD nc -z localhost 9091 || exit 1

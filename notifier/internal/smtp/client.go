@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"net/smtp"
 
-	"github.com/Dashulya-coder/CaseTaskNotifier/internal/notifier/metrics"
+	"github.com/Dashulya-coder/CaseTaskNotifier/notifier/internal/metrics"
 )
 
 type Client struct {

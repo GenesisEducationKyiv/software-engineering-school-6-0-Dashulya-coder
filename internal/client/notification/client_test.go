@@ -11,7 +11,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc"
 
-	notificationv1 "github.com/Dashulya-coder/CaseTaskNotifier/gen/notification/v1"
+	notificationv1 "github.com/Dashulya-coder/CaseTaskNotifier/notifier/gen/notification/v1"
 	"github.com/Dashulya-coder/CaseTaskNotifier/internal/client/notification"
 )
 

@@ -18,12 +18,12 @@ import (
 	"google.golang.org/grpc/health"
 	"google.golang.org/grpc/health/grpc_health_v1"
 
-	notificationv1 "github.com/Dashulya-coder/CaseTaskNotifier/gen/notification/v1"
-	"github.com/Dashulya-coder/CaseTaskNotifier/internal/notifier/config"
-	"github.com/Dashulya-coder/CaseTaskNotifier/internal/notifier/delivery"
-	"github.com/Dashulya-coder/CaseTaskNotifier/internal/notifier/server"
-	"github.com/Dashulya-coder/CaseTaskNotifier/internal/notifier/smtp"
-	"github.com/Dashulya-coder/CaseTaskNotifier/internal/notifier/store"
+	notificationv1 "github.com/Dashulya-coder/CaseTaskNotifier/notifier/gen/notification/v1"
+	"github.com/Dashulya-coder/CaseTaskNotifier/notifier/internal/config"
+	"github.com/Dashulya-coder/CaseTaskNotifier/notifier/internal/delivery"
+	"github.com/Dashulya-coder/CaseTaskNotifier/notifier/internal/server"
+	"github.com/Dashulya-coder/CaseTaskNotifier/notifier/internal/smtp"
+	"github.com/Dashulya-coder/CaseTaskNotifier/notifier/internal/store"
 )
 
 const (

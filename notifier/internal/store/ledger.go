@@ -5,7 +5,7 @@ import (
 	"database/sql"
 	"fmt"
 
-	"github.com/Dashulya-coder/CaseTaskNotifier/internal/notifier/delivery"
+	"github.com/Dashulya-coder/CaseTaskNotifier/notifier/internal/delivery"
 )
 
 type Ledger struct {

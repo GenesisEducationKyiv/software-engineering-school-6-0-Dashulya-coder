@@ -4,7 +4,7 @@ import (
 	"log/slog"
 	"os"
 
-	"github.com/Dashulya-coder/CaseTaskNotifier/internal/notifier/app"
+	"github.com/Dashulya-coder/CaseTaskNotifier/notifier/internal/app"
 )
 
 func main() {

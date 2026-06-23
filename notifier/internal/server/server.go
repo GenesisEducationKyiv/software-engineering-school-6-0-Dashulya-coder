@@ -8,7 +8,7 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
-	notificationv1 "github.com/Dashulya-coder/CaseTaskNotifier/gen/notification/v1"
+	notificationv1 "github.com/Dashulya-coder/CaseTaskNotifier/notifier/gen/notification/v1"
 )
 
 type Service interface {
