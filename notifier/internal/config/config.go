@@ -10,6 +10,7 @@ type Config struct {
 	GRPCPort    string
 	MetricsPort string
 	DatabaseURL string
+	RabbitURL   string
 	SMTPHost    string
 	SMTPPort    int
 	SMTPUser    string
@@ -27,6 +28,7 @@ func Load() *Config {
 		GRPCPort:    getEnv("GRPC_PORT", "9091"),
 		MetricsPort: getEnv("METRICS_PORT", "9092"),
 		DatabaseURL: getEnv("DATABASE_URL", ""),
+		RabbitURL:   getEnv("RABBITMQ_URL", "amqp://guest:guest@localhost:5672/"),
 		SMTPHost:    os.Getenv("SMTP_HOST"),
 		SMTPPort:    smtpPort,
 		SMTPUser:    os.Getenv("SMTP_USER"),

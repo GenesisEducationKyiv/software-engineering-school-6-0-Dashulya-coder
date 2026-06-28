@@ -20,6 +20,7 @@ import (
 
 	notificationv1 "github.com/Dashulya-coder/CaseTaskNotifier/notifier/gen/notification/v1"
 	"github.com/Dashulya-coder/CaseTaskNotifier/notifier/internal/config"
+	"github.com/Dashulya-coder/CaseTaskNotifier/notifier/internal/consumer"
 	"github.com/Dashulya-coder/CaseTaskNotifier/notifier/internal/delivery"
 	"github.com/Dashulya-coder/CaseTaskNotifier/notifier/internal/server"
 	"github.com/Dashulya-coder/CaseTaskNotifier/notifier/internal/smtp"
@@ -60,6 +61,16 @@ func Run() error {
 	svc := delivery.New(ledger, sender)
 	srv := server.New(svc, validator)
 
+	releaseConsumer, err := consumer.New(cfg.RabbitURL, svc)
+	if err != nil {
+		return err
+	}
+	defer func() {
+		if err := releaseConsumer.Close(); err != nil {
+			slog.Error("failed to close release consumer", "error", err)
+		}
+	}()
+
 	grpcServer := grpc.NewServer(
 		grpc.ChainUnaryInterceptor(server.TraceInterceptor, server.RecoveryInterceptor),
 	)
@@ -91,6 +102,12 @@ func Run() error {
 		if err := metricsServer.ListenAndServe(); err != nil &&
 			!errors.Is(err, http.ErrServerClosed) {
 			slog.Error("metrics server error", "error", err)
+		}
+	}()
+
+	go func() {
+		if err := releaseConsumer.Run(ctx); err != nil {
+			slog.Error("release consumer stopped", "error", err)
 		}
 	}()
 
