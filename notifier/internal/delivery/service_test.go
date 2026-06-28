@@ -27,12 +27,15 @@ type mockSender struct {
 	mock.Mock
 }
 
-func (m *mockSender) SendConfirm(email, confirmURL string) error {
-	return m.Called(email, confirmURL).Error(0)
+func (m *mockSender) SendConfirm(ctx context.Context, email, confirmURL string) error {
+	return m.Called(ctx, email, confirmURL).Error(0)
 }
 
-func (m *mockSender) SendRelease(email, repoFullName, tag, releaseURL, unsubscribeURL string) error {
-	return m.Called(email, repoFullName, tag, releaseURL, unsubscribeURL).Error(0)
+func (m *mockSender) SendRelease(
+	ctx context.Context,
+	email, repoFullName, tag, releaseURL, unsubscribeURL string,
+) error {
+	return m.Called(ctx, email, repoFullName, tag, releaseURL, unsubscribeURL).Error(0)
 }
 
 func anyArgs(n int) []any {
@@ -48,7 +51,8 @@ func TestSendRelease(t *testing.T) {
 		ledger := new(mockLedger)
 		sender := new(mockSender)
 		ledger.On("Reserve", anyArgs(2)...).Return(true, nil).Once()
-		sender.On("SendRelease", "a@b.com", "owner/repo", "v1", "url", "unsub").Return(nil).Once()
+		sender.On("SendRelease", mock.Anything, "a@b.com", "owner/repo", "v1", "url", "unsub").
+			Return(nil).Once()
 
 		delivered, err := delivery.New(ledger, sender).SendRelease(
 			context.Background(), "a@b.com", "owner/repo", "v1", "url", "unsub",
@@ -80,7 +84,7 @@ func TestSendRelease(t *testing.T) {
 		sender := new(mockSender)
 		ledger.On("Reserve", anyArgs(2)...).Return(true, nil).Once()
 		ledger.On("Reserve", anyArgs(2)...).Return(false, nil).Once()
-		sender.On("SendRelease", anyArgs(5)...).Return(errBoom).Once()
+		sender.On("SendRelease", anyArgs(6)...).Return(errBoom).Once()
 
 		svc := delivery.New(ledger, sender)
 
@@ -119,7 +123,7 @@ func TestSendConfirm(t *testing.T) {
 		ledger := new(mockLedger)
 		sender := new(mockSender)
 		ledger.On("Reserve", anyArgs(2)...).Return(true, nil).Once()
-		sender.On("SendConfirm", "a@b.com", "confirm-url").Return(nil).Once()
+		sender.On("SendConfirm", mock.Anything, "a@b.com", "confirm-url").Return(nil).Once()
 
 		delivered, err := delivery.New(ledger, sender).SendConfirm(
 			context.Background(), "a@b.com", "confirm-url",

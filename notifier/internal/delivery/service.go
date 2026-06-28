@@ -3,8 +3,8 @@ package delivery
 import (
 	"context"
 	"crypto/sha256"
+	"encoding/binary"
 	"encoding/hex"
-	"strings"
 )
 
 type Ledger interface {
@@ -12,8 +12,8 @@ type Ledger interface {
 }
 
 type Sender interface {
-	SendConfirm(email, confirmURL string) error
-	SendRelease(email, repoFullName, tag, releaseURL, unsubscribeURL string) error
+	SendConfirm(ctx context.Context, email, confirmURL string) error
+	SendRelease(ctx context.Context, email, repoFullName, tag, releaseURL, unsubscribeURL string) error
 }
 
 type Service struct {
@@ -36,7 +36,7 @@ func (s *Service) SendConfirm(ctx context.Context, email, confirmURL string) (bo
 		return false, nil
 	}
 
-	if err := s.sender.SendConfirm(email, confirmURL); err != nil {
+	if err := s.sender.SendConfirm(ctx, email, confirmURL); err != nil {
 		return false, err
 	}
 
@@ -57,7 +57,7 @@ func (s *Service) SendRelease(
 		return false, nil
 	}
 
-	if err := s.sender.SendRelease(email, repoFullName, tag, releaseURL, unsubscribeURL); err != nil {
+	if err := s.sender.SendRelease(ctx, email, repoFullName, tag, releaseURL, unsubscribeURL); err != nil {
 		return false, err
 	}
 
@@ -65,6 +65,12 @@ func (s *Service) SendRelease(
 }
 
 func dedupKey(parts ...string) string {
-	sum := sha256.Sum256([]byte(strings.Join(parts, "|")))
-	return hex.EncodeToString(sum[:])
+	h := sha256.New()
+	var lenBuf [8]byte
+	for _, p := range parts {
+		binary.LittleEndian.PutUint64(lenBuf[:], uint64(len(p)))
+		h.Write(lenBuf[:])
+		h.Write([]byte(p))
+	}
+	return hex.EncodeToString(h.Sum(nil))
 }

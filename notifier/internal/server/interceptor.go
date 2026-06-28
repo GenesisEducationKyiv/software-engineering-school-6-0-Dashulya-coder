@@ -21,7 +21,7 @@ const (
 	traceIDBytes int    = 16
 )
 
-var traceIDPattern = regexp.MustCompile(`^[0-9a-f]+$`)
+var traceIDPattern = regexp.MustCompile(`^[0-9a-f]{32}$`)
 
 func TraceInterceptor(
 	ctx context.Context,

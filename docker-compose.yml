@@ -1,7 +1,7 @@
 services:
   db:
     image: postgres:15
-    container_name: notifier-db
+    container_name: monolith-db
     environment:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres

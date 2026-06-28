@@ -7,10 +7,13 @@ RUN CGO_ENABLED=0 GOOS=linux go build -o /notifier ./notifier/main/
 
 FROM alpine:3.20
 WORKDIR /app
-RUN apk add --no-cache netcat-openbsd
+RUN apk add --no-cache netcat-openbsd && \
+    addgroup -S app && adduser -S -G app app
 COPY --from=builder /notifier .
 COPY notifier/migrations/ migrations/
+RUN chown -R app:app /app
 EXPOSE 9091 9092
 HEALTHCHECK --interval=10s --timeout=3s --retries=5 \
     CMD nc -z localhost 9091 || exit 1
+USER app
 CMD ["/app/notifier"]

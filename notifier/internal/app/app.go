@@ -61,7 +61,7 @@ func Run() error {
 	srv := server.New(svc, validator)
 
 	grpcServer := grpc.NewServer(
-		grpc.ChainUnaryInterceptor(server.RecoveryInterceptor, server.TraceInterceptor),
+		grpc.ChainUnaryInterceptor(server.TraceInterceptor, server.RecoveryInterceptor),
 	)
 	notificationv1.RegisterNotificationServiceServer(grpcServer, srv)
 

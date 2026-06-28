@@ -97,21 +97,23 @@ func Run() error {
 		IdleTimeout:       idleTimeout,
 	}
 
+	serverErr := make(chan error, 1)
 	go func() {
-		<-ctx.Done()
-		slog.Info("server shutting down")
-
-		shutdownCtx, cancel := context.WithTimeout(context.Background(), shutdownTimeout)
-		defer cancel()
-
-		if err := server.Shutdown(shutdownCtx); err != nil {
-			slog.Error("server shutdown error", "error", err)
-		}
+		slog.Info("server started", "port", cfg.Port)
+		serverErr <- server.ListenAndServe()
 	}()
 
-	slog.Info("server started", "port", cfg.Port)
+	<-ctx.Done()
+	slog.Info("server shutting down")
 
-	if err := server.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
+	shutdownCtx, cancel := context.WithTimeout(context.Background(), shutdownTimeout)
+	defer cancel()
+
+	if err := server.Shutdown(shutdownCtx); err != nil {
+		slog.Error("server shutdown error", "error", err)
+	}
+
+	if err := <-serverErr; err != nil && !errors.Is(err, http.ErrServerClosed) {
 		return err
 	}
 
