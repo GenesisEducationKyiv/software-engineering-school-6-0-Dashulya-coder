@@ -49,7 +49,7 @@ type SubscriptionServiceImpl struct {
 	subRepo  SubscriptionStore
 	repoRepo RepoStore
 	ghClient github.Client
-	mailer   mailer.Mailer
+	mailer   mailer.ConfirmationSender
 	urls     urlbuilder.URLBuilder
 	tokenGen TokenGenerator
 }
@@ -58,7 +58,7 @@ func NewSubscriptionService(
 	subRepo SubscriptionStore,
 	repoRepo RepoStore,
 	ghClient github.Client,
-	m mailer.Mailer,
+	m mailer.ConfirmationSender,
 	urls urlbuilder.URLBuilder,
 	tokenGen TokenGenerator,
 ) *SubscriptionServiceImpl {
