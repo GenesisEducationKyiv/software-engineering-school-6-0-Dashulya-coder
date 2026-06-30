@@ -105,9 +105,11 @@ func Run() error {
 		}
 	}()
 
+	consumerErr := make(chan error, 1)
 	go func() {
 		if err := releaseConsumer.Run(ctx); err != nil {
-			slog.Error("release consumer stopped", "error", err)
+			consumerErr <- err
+			stop()
 		}
 	}()
 
@@ -129,5 +131,10 @@ func Run() error {
 		return fmt.Errorf("serve: %w", err)
 	}
 
-	return nil
+	select {
+	case err := <-consumerErr:
+		return fmt.Errorf("release consumer failed: %w", err)
+	default:
+		return nil
+	}
 }

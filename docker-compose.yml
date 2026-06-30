@@ -120,7 +120,7 @@ services:
       db:
         condition: service_started
       notifier:
-        condition: service_started
+        condition: service_healthy
       rabbitmq:
         condition: service_healthy
 
