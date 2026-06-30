@@ -22,28 +22,29 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
-type SendConfirmRequest struct {
+type ReserveConfirmationRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
-	Email         string                 `protobuf:"bytes,1,opt,name=email,proto3" json:"email,omitempty"`
-	ConfirmUrl    string                 `protobuf:"bytes,2,opt,name=confirm_url,json=confirmUrl,proto3" json:"confirm_url,omitempty"`
+	SagaId        string                 `protobuf:"bytes,1,opt,name=saga_id,json=sagaId,proto3" json:"saga_id,omitempty"`
+	Email         string                 `protobuf:"bytes,2,opt,name=email,proto3" json:"email,omitempty"`
+	ConfirmUrl    string                 `protobuf:"bytes,3,opt,name=confirm_url,json=confirmUrl,proto3" json:"confirm_url,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
-func (x *SendConfirmRequest) Reset() {
-	*x = SendConfirmRequest{}
+func (x *ReserveConfirmationRequest) Reset() {
+	*x = ReserveConfirmationRequest{}
 	mi := &file_notification_v1_notification_proto_msgTypes[0]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
 
-func (x *SendConfirmRequest) String() string {
+func (x *ReserveConfirmationRequest) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*SendConfirmRequest) ProtoMessage() {}
+func (*ReserveConfirmationRequest) ProtoMessage() {}
 
-func (x *SendConfirmRequest) ProtoReflect() protoreflect.Message {
+func (x *ReserveConfirmationRequest) ProtoReflect() protoreflect.Message {
 	mi := &file_notification_v1_notification_proto_msgTypes[0]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -55,23 +56,162 @@ func (x *SendConfirmRequest) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use SendConfirmRequest.ProtoReflect.Descriptor instead.
-func (*SendConfirmRequest) Descriptor() ([]byte, []int) {
+// Deprecated: Use ReserveConfirmationRequest.ProtoReflect.Descriptor instead.
+func (*ReserveConfirmationRequest) Descriptor() ([]byte, []int) {
 	return file_notification_v1_notification_proto_rawDescGZIP(), []int{0}
 }
 
-func (x *SendConfirmRequest) GetEmail() string {
+func (x *ReserveConfirmationRequest) GetSagaId() string {
+	if x != nil {
+		return x.SagaId
+	}
+	return ""
+}
+
+func (x *ReserveConfirmationRequest) GetEmail() string {
 	if x != nil {
 		return x.Email
 	}
 	return ""
 }
 
-func (x *SendConfirmRequest) GetConfirmUrl() string {
+func (x *ReserveConfirmationRequest) GetConfirmUrl() string {
 	if x != nil {
 		return x.ConfirmUrl
 	}
 	return ""
+}
+
+type CommitConfirmationRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	SagaId        string                 `protobuf:"bytes,1,opt,name=saga_id,json=sagaId,proto3" json:"saga_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *CommitConfirmationRequest) Reset() {
+	*x = CommitConfirmationRequest{}
+	mi := &file_notification_v1_notification_proto_msgTypes[1]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *CommitConfirmationRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*CommitConfirmationRequest) ProtoMessage() {}
+
+func (x *CommitConfirmationRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_notification_v1_notification_proto_msgTypes[1]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use CommitConfirmationRequest.ProtoReflect.Descriptor instead.
+func (*CommitConfirmationRequest) Descriptor() ([]byte, []int) {
+	return file_notification_v1_notification_proto_rawDescGZIP(), []int{1}
+}
+
+func (x *CommitConfirmationRequest) GetSagaId() string {
+	if x != nil {
+		return x.SagaId
+	}
+	return ""
+}
+
+type CancelConfirmationRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	SagaId        string                 `protobuf:"bytes,1,opt,name=saga_id,json=sagaId,proto3" json:"saga_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *CancelConfirmationRequest) Reset() {
+	*x = CancelConfirmationRequest{}
+	mi := &file_notification_v1_notification_proto_msgTypes[2]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *CancelConfirmationRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*CancelConfirmationRequest) ProtoMessage() {}
+
+func (x *CancelConfirmationRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_notification_v1_notification_proto_msgTypes[2]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use CancelConfirmationRequest.ProtoReflect.Descriptor instead.
+func (*CancelConfirmationRequest) Descriptor() ([]byte, []int) {
+	return file_notification_v1_notification_proto_rawDescGZIP(), []int{2}
+}
+
+func (x *CancelConfirmationRequest) GetSagaId() string {
+	if x != nil {
+		return x.SagaId
+	}
+	return ""
+}
+
+type ConfirmationResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Ok            bool                   `protobuf:"varint,1,opt,name=ok,proto3" json:"ok,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ConfirmationResponse) Reset() {
+	*x = ConfirmationResponse{}
+	mi := &file_notification_v1_notification_proto_msgTypes[3]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ConfirmationResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ConfirmationResponse) ProtoMessage() {}
+
+func (x *ConfirmationResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_notification_v1_notification_proto_msgTypes[3]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ConfirmationResponse.ProtoReflect.Descriptor instead.
+func (*ConfirmationResponse) Descriptor() ([]byte, []int) {
+	return file_notification_v1_notification_proto_rawDescGZIP(), []int{3}
+}
+
+func (x *ConfirmationResponse) GetOk() bool {
+	if x != nil {
+		return x.Ok
+	}
+	return false
 }
 
 type SendReleaseRequest struct {
@@ -87,7 +227,7 @@ type SendReleaseRequest struct {
 
 func (x *SendReleaseRequest) Reset() {
 	*x = SendReleaseRequest{}
-	mi := &file_notification_v1_notification_proto_msgTypes[1]
+	mi := &file_notification_v1_notification_proto_msgTypes[4]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -99,7 +239,7 @@ func (x *SendReleaseRequest) String() string {
 func (*SendReleaseRequest) ProtoMessage() {}
 
 func (x *SendReleaseRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_notification_v1_notification_proto_msgTypes[1]
+	mi := &file_notification_v1_notification_proto_msgTypes[4]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -112,7 +252,7 @@ func (x *SendReleaseRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SendReleaseRequest.ProtoReflect.Descriptor instead.
 func (*SendReleaseRequest) Descriptor() ([]byte, []int) {
-	return file_notification_v1_notification_proto_rawDescGZIP(), []int{1}
+	return file_notification_v1_notification_proto_rawDescGZIP(), []int{4}
 }
 
 func (x *SendReleaseRequest) GetEmail() string {
@@ -159,7 +299,7 @@ type SendResponse struct {
 
 func (x *SendResponse) Reset() {
 	*x = SendResponse{}
-	mi := &file_notification_v1_notification_proto_msgTypes[2]
+	mi := &file_notification_v1_notification_proto_msgTypes[5]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -171,7 +311,7 @@ func (x *SendResponse) String() string {
 func (*SendResponse) ProtoMessage() {}
 
 func (x *SendResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_notification_v1_notification_proto_msgTypes[2]
+	mi := &file_notification_v1_notification_proto_msgTypes[5]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -184,7 +324,7 @@ func (x *SendResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SendResponse.ProtoReflect.Descriptor instead.
 func (*SendResponse) Descriptor() ([]byte, []int) {
-	return file_notification_v1_notification_proto_rawDescGZIP(), []int{2}
+	return file_notification_v1_notification_proto_rawDescGZIP(), []int{5}
 }
 
 func (x *SendResponse) GetDelivered() bool {
@@ -198,11 +338,18 @@ var File_notification_v1_notification_proto protoreflect.FileDescriptor
 
 const file_notification_v1_notification_proto_rawDesc = "" +
 	"\n" +
-	"\"notification/v1/notification.proto\x12\x0fnotification.v1\x1a\x1bbuf/validate/validate.proto\"^\n" +
-	"\x12SendConfirmRequest\x12\x1d\n" +
-	"\x05email\x18\x01 \x01(\tB\a\xbaH\x04r\x02`\x01R\x05email\x12)\n" +
-	"\vconfirm_url\x18\x02 \x01(\tB\b\xbaH\x05r\x03\x88\x01\x01R\n" +
-	"confirmUrl\"\xdb\x01\n" +
+	"\"notification/v1/notification.proto\x12\x0fnotification.v1\x1a\x1bbuf/validate/validate.proto\"\x89\x01\n" +
+	"\x1aReserveConfirmationRequest\x12!\n" +
+	"\asaga_id\x18\x01 \x01(\tB\b\xbaH\x05r\x03\xb0\x01\x01R\x06sagaId\x12\x1d\n" +
+	"\x05email\x18\x02 \x01(\tB\a\xbaH\x04r\x02`\x01R\x05email\x12)\n" +
+	"\vconfirm_url\x18\x03 \x01(\tB\b\xbaH\x05r\x03\x88\x01\x01R\n" +
+	"confirmUrl\">\n" +
+	"\x19CommitConfirmationRequest\x12!\n" +
+	"\asaga_id\x18\x01 \x01(\tB\b\xbaH\x05r\x03\xb0\x01\x01R\x06sagaId\">\n" +
+	"\x19CancelConfirmationRequest\x12!\n" +
+	"\asaga_id\x18\x01 \x01(\tB\b\xbaH\x05r\x03\xb0\x01\x01R\x06sagaId\"&\n" +
+	"\x14ConfirmationResponse\x12\x0e\n" +
+	"\x02ok\x18\x01 \x01(\bR\x02ok\"\xdb\x01\n" +
 	"\x12SendReleaseRequest\x12\x1d\n" +
 	"\x05email\x18\x01 \x01(\tB\a\xbaH\x04r\x02`\x01R\x05email\x12-\n" +
 	"\x0erepo_full_name\x18\x02 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\frepoFullName\x12\x19\n" +
@@ -211,9 +358,11 @@ const file_notification_v1_notification_proto_rawDesc = "" +
 	"releaseUrl\x121\n" +
 	"\x0funsubscribe_url\x18\x05 \x01(\tB\b\xbaH\x05r\x03\x88\x01\x01R\x0eunsubscribeUrl\",\n" +
 	"\fSendResponse\x12\x1c\n" +
-	"\tdelivered\x18\x01 \x01(\bR\tdelivered2\xbb\x01\n" +
-	"\x13NotificationService\x12Q\n" +
-	"\vSendConfirm\x12#.notification.v1.SendConfirmRequest\x1a\x1d.notification.v1.SendResponse\x12Q\n" +
+	"\tdelivered\x18\x01 \x01(\bR\tdelivered2\xa5\x03\n" +
+	"\x13NotificationService\x12i\n" +
+	"\x13ReserveConfirmation\x12+.notification.v1.ReserveConfirmationRequest\x1a%.notification.v1.ConfirmationResponse\x12g\n" +
+	"\x12CommitConfirmation\x12*.notification.v1.CommitConfirmationRequest\x1a%.notification.v1.ConfirmationResponse\x12g\n" +
+	"\x12CancelConfirmation\x12*.notification.v1.CancelConfirmationRequest\x1a%.notification.v1.ConfirmationResponse\x12Q\n" +
 	"\vSendRelease\x12#.notification.v1.SendReleaseRequest\x1a\x1d.notification.v1.SendResponseB\xd4\x01\n" +
 	"\x13com.notification.v1B\x11NotificationProtoP\x01ZMgithub.com/Dashulya-coder/CaseTaskNotifier/gen/notification/v1;notificationv1\xa2\x02\x03NXX\xaa\x02\x0fNotification.V1\xca\x02\x0fNotification\\V1\xe2\x02\x1bNotification\\V1\\GPBMetadata\xea\x02\x10Notification::V1b\x06proto3"
 
@@ -229,19 +378,26 @@ func file_notification_v1_notification_proto_rawDescGZIP() []byte {
 	return file_notification_v1_notification_proto_rawDescData
 }
 
-var file_notification_v1_notification_proto_msgTypes = make([]protoimpl.MessageInfo, 3)
+var file_notification_v1_notification_proto_msgTypes = make([]protoimpl.MessageInfo, 6)
 var file_notification_v1_notification_proto_goTypes = []any{
-	(*SendConfirmRequest)(nil), // 0: notification.v1.SendConfirmRequest
-	(*SendReleaseRequest)(nil), // 1: notification.v1.SendReleaseRequest
-	(*SendResponse)(nil),       // 2: notification.v1.SendResponse
+	(*ReserveConfirmationRequest)(nil), // 0: notification.v1.ReserveConfirmationRequest
+	(*CommitConfirmationRequest)(nil),  // 1: notification.v1.CommitConfirmationRequest
+	(*CancelConfirmationRequest)(nil),  // 2: notification.v1.CancelConfirmationRequest
+	(*ConfirmationResponse)(nil),       // 3: notification.v1.ConfirmationResponse
+	(*SendReleaseRequest)(nil),         // 4: notification.v1.SendReleaseRequest
+	(*SendResponse)(nil),               // 5: notification.v1.SendResponse
 }
 var file_notification_v1_notification_proto_depIdxs = []int32{
-	0, // 0: notification.v1.NotificationService.SendConfirm:input_type -> notification.v1.SendConfirmRequest
-	1, // 1: notification.v1.NotificationService.SendRelease:input_type -> notification.v1.SendReleaseRequest
-	2, // 2: notification.v1.NotificationService.SendConfirm:output_type -> notification.v1.SendResponse
-	2, // 3: notification.v1.NotificationService.SendRelease:output_type -> notification.v1.SendResponse
-	2, // [2:4] is the sub-list for method output_type
-	0, // [0:2] is the sub-list for method input_type
+	0, // 0: notification.v1.NotificationService.ReserveConfirmation:input_type -> notification.v1.ReserveConfirmationRequest
+	1, // 1: notification.v1.NotificationService.CommitConfirmation:input_type -> notification.v1.CommitConfirmationRequest
+	2, // 2: notification.v1.NotificationService.CancelConfirmation:input_type -> notification.v1.CancelConfirmationRequest
+	4, // 3: notification.v1.NotificationService.SendRelease:input_type -> notification.v1.SendReleaseRequest
+	3, // 4: notification.v1.NotificationService.ReserveConfirmation:output_type -> notification.v1.ConfirmationResponse
+	3, // 5: notification.v1.NotificationService.CommitConfirmation:output_type -> notification.v1.ConfirmationResponse
+	3, // 6: notification.v1.NotificationService.CancelConfirmation:output_type -> notification.v1.ConfirmationResponse
+	5, // 7: notification.v1.NotificationService.SendRelease:output_type -> notification.v1.SendResponse
+	4, // [4:8] is the sub-list for method output_type
+	0, // [0:4] is the sub-list for method input_type
 	0, // [0:0] is the sub-list for extension type_name
 	0, // [0:0] is the sub-list for extension extendee
 	0, // [0:0] is the sub-list for field type_name
@@ -258,7 +414,7 @@ func file_notification_v1_notification_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_notification_v1_notification_proto_rawDesc), len(file_notification_v1_notification_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   3,
+			NumMessages:   6,
 			NumExtensions: 0,
 			NumServices:   1,
 		},
