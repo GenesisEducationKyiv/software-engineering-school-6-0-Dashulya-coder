@@ -57,8 +57,9 @@ func Run() error {
 	}
 
 	ledger := store.NewLedger(db)
+	deliveries := store.NewDeliveries(db)
 	sender := smtp.NewClient(cfg.SMTPHost, cfg.SMTPPort, cfg.SMTPUser, cfg.SMTPPass, cfg.SMTPFrom)
-	svc := delivery.New(ledger, sender)
+	svc := delivery.New(ledger, deliveries, sender)
 	srv := server.New(svc, validator)
 
 	releaseConsumer, err := consumer.New(cfg.RabbitURL, svc)

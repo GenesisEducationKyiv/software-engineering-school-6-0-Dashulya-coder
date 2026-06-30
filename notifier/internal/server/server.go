@@ -12,7 +12,9 @@ import (
 )
 
 type Service interface {
-	SendConfirm(ctx context.Context, email, confirmURL string) (bool, error)
+	ReserveConfirmation(ctx context.Context, sagaID, email, confirmURL string) (bool, error)
+	CommitConfirmation(ctx context.Context, sagaID string) (bool, error)
+	CancelConfirmation(ctx context.Context, sagaID string) error
 	SendRelease(
 		ctx context.Context,
 		email, repoFullName, tag, releaseURL, unsubscribeURL string,
@@ -29,21 +31,54 @@ func New(svc Service, validator protovalidate.Validator) *Server {
 	return &Server{svc: svc, validator: validator}
 }
 
-func (s *Server) SendConfirm(
+func (s *Server) ReserveConfirmation(
 	ctx context.Context,
-	req *notificationv1.SendConfirmRequest,
-) (*notificationv1.SendResponse, error) {
+	req *notificationv1.ReserveConfirmationRequest,
+) (*notificationv1.ConfirmationResponse, error) {
 	if err := s.validator.Validate(req); err != nil {
 		return nil, status.Error(codes.InvalidArgument, "invalid request")
 	}
 
-	delivered, err := s.svc.SendConfirm(ctx, req.GetEmail(), req.GetConfirmUrl())
+	ok, err := s.svc.ReserveConfirmation(ctx, req.GetSagaId(), req.GetEmail(), req.GetConfirmUrl())
 	if err != nil {
-		slog.Error("send confirm failed", "trace_id", traceID(ctx), "error", err)
-		return nil, status.Error(codes.Internal, "failed to send notification")
+		slog.Error("reserve confirmation failed", "trace_id", traceID(ctx), "error", err)
+		return nil, status.Error(codes.Internal, "failed to reserve confirmation")
 	}
 
-	return &notificationv1.SendResponse{Delivered: delivered}, nil
+	return &notificationv1.ConfirmationResponse{Ok: ok}, nil
+}
+
+func (s *Server) CommitConfirmation(
+	ctx context.Context,
+	req *notificationv1.CommitConfirmationRequest,
+) (*notificationv1.ConfirmationResponse, error) {
+	if err := s.validator.Validate(req); err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid request")
+	}
+
+	ok, err := s.svc.CommitConfirmation(ctx, req.GetSagaId())
+	if err != nil {
+		slog.Error("commit confirmation failed", "trace_id", traceID(ctx), "error", err)
+		return nil, status.Error(codes.Internal, "failed to commit confirmation")
+	}
+
+	return &notificationv1.ConfirmationResponse{Ok: ok}, nil
+}
+
+func (s *Server) CancelConfirmation(
+	ctx context.Context,
+	req *notificationv1.CancelConfirmationRequest,
+) (*notificationv1.ConfirmationResponse, error) {
+	if err := s.validator.Validate(req); err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid request")
+	}
+
+	if err := s.svc.CancelConfirmation(ctx, req.GetSagaId()); err != nil {
+		slog.Error("cancel confirmation failed", "trace_id", traceID(ctx), "error", err)
+		return nil, status.Error(codes.Internal, "failed to cancel confirmation")
+	}
+
+	return &notificationv1.ConfirmationResponse{Ok: true}, nil
 }
 
 func (s *Server) SendRelease(
