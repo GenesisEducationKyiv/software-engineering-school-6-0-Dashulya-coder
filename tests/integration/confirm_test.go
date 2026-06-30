@@ -44,7 +44,7 @@ func TestGetConfirm(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Cleanup(func() { testdb.TruncateTables(t, testDB) })
 
-			srv := testapp.NewServer(t, testDB, new(mockGitHubClient), new(mockMailer))
+			srv := testapp.NewServer(t, testDB, new(mockGitHubClient), &stubNotifier{})
 			tc.setup(t)
 
 			resp := testhttp.DoGet(t, srv.Client(), srv.URL+"/api/confirm/"+tc.urlToken)

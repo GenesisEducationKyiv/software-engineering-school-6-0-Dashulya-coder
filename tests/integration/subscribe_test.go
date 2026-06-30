@@ -2,6 +2,7 @@ package integration_test
 
 import (
 	"context"
+	"errors"
 	"net/http"
 	"testing"
 
@@ -55,10 +56,7 @@ func TestPostSubscribe(t *testing.T) {
 			gh.On("RepositoryExists", mock.Anything, mock.Anything, mock.Anything).
 				Return(tc.ghExists, nil)
 
-			ml := new(mockMailer)
-			ml.On("SendConfirmation", mock.Anything, mock.Anything).Return(nil)
-
-			srv := testapp.NewServer(t, testDB, gh, ml)
+			srv := testapp.NewServer(t, testDB, gh, &stubNotifier{})
 
 			resp := testhttp.DoPost(t, srv.Client(), srv.URL+"/api/subscribe", tc.body)
 			assert.Equal(t, tc.wantStatus, resp.StatusCode)
@@ -74,9 +72,7 @@ func TestPostSubscribe_Duplicate(t *testing.T) {
 
 		gh := new(mockGitHubClient)
 		gh.On("RepositoryExists", mock.Anything, mock.Anything, mock.Anything).Return(true, nil)
-		ml := new(mockMailer)
-		ml.On("SendConfirmation", mock.Anything, mock.Anything).Return(nil)
-		srv := testapp.NewServer(t, testDB, gh, ml)
+		srv := testapp.NewServer(t, testDB, gh, &stubNotifier{})
 
 		first := testhttp.DoPost(t, srv.Client(), srv.URL+"/api/subscribe", body)
 		assert.Equal(t, http.StatusOK, first.StatusCode)
@@ -90,9 +86,7 @@ func TestPostSubscribe_Duplicate(t *testing.T) {
 
 		gh := new(mockGitHubClient)
 		gh.On("RepositoryExists", mock.Anything, mock.Anything, mock.Anything).Return(true, nil)
-		ml := new(mockMailer)
-		ml.On("SendConfirmation", mock.Anything, mock.Anything).Return(nil)
-		srv := testapp.NewServer(t, testDB, gh, ml)
+		srv := testapp.NewServer(t, testDB, gh, &stubNotifier{})
 
 		first := testhttp.DoPost(t, srv.Client(), srv.URL+"/api/subscribe", body)
 		require.Equal(t, http.StatusOK, first.StatusCode)
@@ -110,9 +104,7 @@ func TestPostSubscribe_Duplicate(t *testing.T) {
 
 		gh := new(mockGitHubClient)
 		gh.On("RepositoryExists", mock.Anything, mock.Anything, mock.Anything).Return(true, nil)
-		ml := new(mockMailer)
-		ml.On("SendConfirmation", mock.Anything, mock.Anything).Return(nil)
-		srv := testapp.NewServer(t, testDB, gh, ml)
+		srv := testapp.NewServer(t, testDB, gh, &stubNotifier{})
 
 		first := testhttp.DoPost(t, srv.Client(), srv.URL+"/api/subscribe", body)
 		require.Equal(t, http.StatusOK, first.StatusCode)
@@ -128,6 +120,37 @@ func TestPostSubscribe_Duplicate(t *testing.T) {
 		second := testhttp.DoPost(t, srv.Client(), srv.URL+"/api/subscribe", body)
 		assert.Equal(t, http.StatusOK, second.StatusCode)
 	})
+}
+
+func TestPostSubscribe_NotifierFailureCompensates(t *testing.T) {
+	t.Cleanup(func() { testdb.TruncateTables(t, testDB) })
+
+	gh := new(mockGitHubClient)
+	gh.On("RepositoryExists", mock.Anything, mock.Anything, mock.Anything).Return(true, nil)
+
+	notifier := &stubNotifier{commitErr: errors.New("notifier unavailable")}
+	srv := testapp.NewServer(t, testDB, gh, notifier)
+
+	resp := testhttp.DoPost(t, srv.Client(), srv.URL+"/api/subscribe",
+		`{"email":"user@example.com","repo":"cli/cli"}`)
+	require.Equal(t, http.StatusInternalServerError, resp.StatusCode)
+
+	assert.Positive(t, notifier.cancelCalls)
+	assert.Zero(t, countSubscriptions(t, "user@example.com", "cli/cli"))
+}
+
+func countSubscriptions(t *testing.T, email, repoFullName string) int {
+	t.Helper()
+	const q = `
+		SELECT COUNT(*)
+		FROM subscriptions s
+		JOIN repositories r ON r.id = s.repository_id
+		WHERE s.email = $1 AND r.full_name = $2
+	`
+	var n int
+	err := testDB.QueryRowContext(context.Background(), q, email, repoFullName).Scan(&n)
+	require.NoError(t, err)
+	return n
 }
 
 func fetchConfirmToken(t *testing.T, email, repoFullName string) string {
