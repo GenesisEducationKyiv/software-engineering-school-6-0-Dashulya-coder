@@ -13,13 +13,19 @@ import (
 	"github.com/Dashulya-coder/CaseTaskNotifier/internal/urlbuilder"
 )
 
+var errBoom = errors.New("boom")
+
 type mockSubscriptionStore struct {
 	mock.Mock
 }
 
-func (m *mockSubscriptionStore) UpsertPending(ctx context.Context, sub *Subscription) (bool, error) {
-	args := m.Called(ctx, sub)
+func (m *mockSubscriptionStore) CreateForSaga(ctx context.Context, sub *Subscription, sagaID string) (bool, error) {
+	args := m.Called(ctx, sub, sagaID)
 	return args.Bool(0), args.Error(1)
+}
+
+func (m *mockSubscriptionStore) CancelBySaga(ctx context.Context, sagaID string) error {
+	return m.Called(ctx, sagaID).Error(0)
 }
 
 func (m *mockSubscriptionStore) FindByConfirmToken(ctx context.Context, token string) (*Subscription, error) {
@@ -88,16 +94,20 @@ func (m *mockGitHubClient) GetLatestRelease(ctx context.Context, owner, repo str
 	return args.String(0), args.String(1), args.Error(2)
 }
 
-type mockMailer struct {
+type mockNotifier struct {
 	mock.Mock
 }
 
-func (m *mockMailer) SendConfirmation(email, confirmLink string) error {
-	return m.Called(email, confirmLink).Error(0)
+func (m *mockNotifier) ReserveConfirmation(ctx context.Context, sagaID, email, confirmURL string) error {
+	return m.Called(ctx, sagaID, email, confirmURL).Error(0)
 }
 
-func (m *mockMailer) SendNewRelease(email, repoName, tag, releaseURL, unsubscribeLink string) error {
-	return m.Called(email, repoName, tag, releaseURL, unsubscribeLink).Error(0)
+func (m *mockNotifier) CommitConfirmation(ctx context.Context, sagaID string) error {
+	return m.Called(ctx, sagaID).Error(0)
+}
+
+func (m *mockNotifier) CancelConfirmation(ctx context.Context, sagaID string) error {
+	return m.Called(ctx, sagaID).Error(0)
 }
 
 type mockTokenGenerator struct {
@@ -117,7 +127,7 @@ func TestSubscribe_Success(t *testing.T) {
 	subStore := new(mockSubscriptionStore)
 	repoStore := new(mockRepoStore)
 	ghClient := new(mockGitHubClient)
-	mailerMock := new(mockMailer)
+	notifier := new(mockNotifier)
 	tokenGen := new(mockTokenGenerator)
 
 	ghClient.On("RepositoryExists", mock.Anything, "golang", "go").Return(true, nil).Once()
@@ -125,32 +135,32 @@ func TestSubscribe_Success(t *testing.T) {
 		Return(&repo.Repository{ID: 1, FullName: "golang/go", Owner: "golang", Name: "go"}, nil).Once()
 	tokenGen.On("Generate").Return("confirm-token", nil).Once()
 	tokenGen.On("Generate").Return("unsub-token", nil).Once()
-	subStore.On("UpsertPending", mock.Anything, mock.MatchedBy(func(sub *Subscription) bool {
+	subStore.On("CreateForSaga", mock.Anything, mock.MatchedBy(func(sub *Subscription) bool {
 		return sub.Email == "test@example.com" &&
 			sub.RepositoryID == 1 &&
 			sub.ConfirmToken != "" &&
 			sub.UnsubscribeToken != ""
-	})).Return(false, nil).Once()
-	mailerMock.On("SendConfirmation", "test@example.com", mock.MatchedBy(func(link string) bool {
-		return link != ""
-	})).Return(nil).Once()
+	}), mock.Anything).Return(false, nil).Once()
+	notifier.On("ReserveConfirmation", mock.Anything, mock.Anything, "test@example.com",
+		mock.MatchedBy(func(link string) bool { return link != "" })).Return(nil).Once()
+	notifier.On("CommitConfirmation", mock.Anything, mock.Anything).Return(nil).Once()
 
-	svc := NewSubscriptionService(subStore, repoStore, ghClient, mailerMock, newTestURLs(), tokenGen)
+	svc := NewSubscriptionService(subStore, repoStore, ghClient, notifier, newTestURLs(), tokenGen)
 	require.NoError(t, svc.Subscribe(context.Background(), "test@example.com", "golang/go"))
 
-	subStore.AssertNumberOfCalls(t, "UpsertPending", 1)
-	mailerMock.AssertNumberOfCalls(t, "SendConfirmation", 1)
+	subStore.AssertNumberOfCalls(t, "CreateForSaga", 1)
+	notifier.AssertNumberOfCalls(t, "CommitConfirmation", 1)
 	subStore.AssertExpectations(t)
 	repoStore.AssertExpectations(t)
 	ghClient.AssertExpectations(t)
-	mailerMock.AssertExpectations(t)
+	notifier.AssertExpectations(t)
 	tokenGen.AssertExpectations(t)
 }
 
 func TestSubscribe_InvalidEmail(t *testing.T) {
 	svc := NewSubscriptionService(
 		new(mockSubscriptionStore), new(mockRepoStore), new(mockGitHubClient),
-		new(mockMailer), newTestURLs(), new(mockTokenGenerator),
+		new(mockNotifier), newTestURLs(), new(mockTokenGenerator),
 	)
 	require.ErrorIs(t, svc.Subscribe(context.Background(), "bad-email", "golang/go"), ErrInvalidEmail)
 }
@@ -158,7 +168,7 @@ func TestSubscribe_InvalidEmail(t *testing.T) {
 func TestSubscribe_InvalidRepo(t *testing.T) {
 	svc := NewSubscriptionService(
 		new(mockSubscriptionStore), new(mockRepoStore), new(mockGitHubClient),
-		new(mockMailer), newTestURLs(), new(mockTokenGenerator),
+		new(mockNotifier), newTestURLs(), new(mockTokenGenerator),
 	)
 	require.ErrorIs(t, svc.Subscribe(context.Background(), "test@example.com", "wrongformat"), ErrInvalidRepo)
 }
@@ -169,7 +179,7 @@ func TestSubscribe_RepoNotFound(t *testing.T) {
 
 	svc := NewSubscriptionService(
 		new(mockSubscriptionStore), new(mockRepoStore), ghClient,
-		new(mockMailer), newTestURLs(), new(mockTokenGenerator),
+		new(mockNotifier), newTestURLs(), new(mockTokenGenerator),
 	)
 	require.ErrorIs(t, svc.Subscribe(context.Background(), "test@example.com", "owner/repo"), ErrRepoNotFound)
 	ghClient.AssertExpectations(t)
@@ -186,12 +196,14 @@ func TestSubscribe_AlreadySubscribed(t *testing.T) {
 		Return(&repo.Repository{ID: 1, FullName: "golang/go", Owner: "golang", Name: "go"}, nil).Once()
 	tokenGen.On("Generate").Return("confirm-token", nil).Once()
 	tokenGen.On("Generate").Return("unsub-token", nil).Once()
-	subStore.On("UpsertPending", mock.Anything, mock.Anything).Return(true, nil).Once()
+	subStore.On("CreateForSaga", mock.Anything, mock.Anything, mock.Anything).Return(true, nil).Once()
 
-	svc := NewSubscriptionService(subStore, repoStore, ghClient, new(mockMailer), newTestURLs(), tokenGen)
+	notifier := new(mockNotifier)
+	svc := NewSubscriptionService(subStore, repoStore, ghClient, notifier, newTestURLs(), tokenGen)
 	require.ErrorIs(t, svc.Subscribe(context.Background(), "test@example.com", "golang/go"), ErrAlreadySubscribed)
 
-	subStore.AssertNumberOfCalls(t, "UpsertPending", 1)
+	subStore.AssertNumberOfCalls(t, "CreateForSaga", 1)
+	notifier.AssertNotCalled(t, "ReserveConfirmation")
 	subStore.AssertExpectations(t)
 	repoStore.AssertExpectations(t)
 	ghClient.AssertExpectations(t)
@@ -202,7 +214,7 @@ func TestSubscribe_ReSubscribeAfterUnsubscribe(t *testing.T) {
 	subStore := new(mockSubscriptionStore)
 	repoStore := new(mockRepoStore)
 	ghClient := new(mockGitHubClient)
-	mailerMock := new(mockMailer)
+	notifier := new(mockNotifier)
 	tokenGen := new(mockTokenGenerator)
 
 	ghClient.On("RepositoryExists", mock.Anything, "golang", "go").Return(true, nil).Once()
@@ -210,17 +222,72 @@ func TestSubscribe_ReSubscribeAfterUnsubscribe(t *testing.T) {
 		Return(&repo.Repository{ID: 1, FullName: "golang/go", Owner: "golang", Name: "go"}, nil).Once()
 	tokenGen.On("Generate").Return("new-confirm-token", nil).Once()
 	tokenGen.On("Generate").Return("new-unsub-token", nil).Once()
-	subStore.On("UpsertPending", mock.Anything, mock.Anything).Return(false, nil).Once()
-	mailerMock.On("SendConfirmation", "test@example.com", mock.MatchedBy(func(link string) bool {
-		return link != ""
-	})).Return(nil).Once()
+	subStore.On("CreateForSaga", mock.Anything, mock.Anything, mock.Anything).Return(false, nil).Once()
+	notifier.On("ReserveConfirmation", mock.Anything, mock.Anything, "test@example.com",
+		mock.MatchedBy(func(link string) bool { return link != "" })).Return(nil).Once()
+	notifier.On("CommitConfirmation", mock.Anything, mock.Anything).Return(nil).Once()
 
-	svc := NewSubscriptionService(subStore, repoStore, ghClient, mailerMock, newTestURLs(), tokenGen)
+	svc := NewSubscriptionService(subStore, repoStore, ghClient, notifier, newTestURLs(), tokenGen)
 	require.NoError(t, svc.Subscribe(context.Background(), "test@example.com", "golang/go"))
 
 	subStore.AssertExpectations(t)
-	mailerMock.AssertExpectations(t)
+	notifier.AssertExpectations(t)
 	tokenGen.AssertExpectations(t)
+}
+
+func TestSubscribe_CommitFailureCompensates(t *testing.T) {
+	subStore := new(mockSubscriptionStore)
+	repoStore := new(mockRepoStore)
+	ghClient := new(mockGitHubClient)
+	notifier := new(mockNotifier)
+	tokenGen := new(mockTokenGenerator)
+
+	ghClient.On("RepositoryExists", mock.Anything, "golang", "go").Return(true, nil).Once()
+	repoStore.On("FindOrCreate", mock.Anything, "golang", "go", "golang/go").
+		Return(&repo.Repository{ID: 1, FullName: "golang/go", Owner: "golang", Name: "go"}, nil).Once()
+	tokenGen.On("Generate").Return("confirm-token", nil).Once()
+	tokenGen.On("Generate").Return("unsub-token", nil).Once()
+	subStore.On("CreateForSaga", mock.Anything, mock.Anything, mock.Anything).Return(false, nil).Once()
+	notifier.On("ReserveConfirmation", mock.Anything, mock.Anything, mock.Anything, mock.Anything).
+		Return(nil).Once()
+	notifier.On("CommitConfirmation", mock.Anything, mock.Anything).Return(errBoom).Once()
+	notifier.On("CancelConfirmation", mock.Anything, mock.Anything).Return(nil).Once()
+	subStore.On("CancelBySaga", mock.Anything, mock.Anything).Return(nil).Once()
+
+	svc := NewSubscriptionService(subStore, repoStore, ghClient, notifier, newTestURLs(), tokenGen)
+	require.Error(t, svc.Subscribe(context.Background(), "test@example.com", "golang/go"))
+
+	notifier.AssertCalled(t, "CancelConfirmation", mock.Anything, mock.Anything)
+	subStore.AssertCalled(t, "CancelBySaga", mock.Anything, mock.Anything)
+	subStore.AssertExpectations(t)
+	notifier.AssertExpectations(t)
+}
+
+func TestSubscribe_ReserveFailureCompensatesSubscriptionOnly(t *testing.T) {
+	subStore := new(mockSubscriptionStore)
+	repoStore := new(mockRepoStore)
+	ghClient := new(mockGitHubClient)
+	notifier := new(mockNotifier)
+	tokenGen := new(mockTokenGenerator)
+
+	ghClient.On("RepositoryExists", mock.Anything, "golang", "go").Return(true, nil).Once()
+	repoStore.On("FindOrCreate", mock.Anything, "golang", "go", "golang/go").
+		Return(&repo.Repository{ID: 1, FullName: "golang/go", Owner: "golang", Name: "go"}, nil).Once()
+	tokenGen.On("Generate").Return("confirm-token", nil).Once()
+	tokenGen.On("Generate").Return("unsub-token", nil).Once()
+	subStore.On("CreateForSaga", mock.Anything, mock.Anything, mock.Anything).Return(false, nil).Once()
+	notifier.On("ReserveConfirmation", mock.Anything, mock.Anything, mock.Anything, mock.Anything).
+		Return(errBoom).Once()
+	subStore.On("CancelBySaga", mock.Anything, mock.Anything).Return(nil).Once()
+
+	svc := NewSubscriptionService(subStore, repoStore, ghClient, notifier, newTestURLs(), tokenGen)
+	require.Error(t, svc.Subscribe(context.Background(), "test@example.com", "golang/go"))
+
+	subStore.AssertCalled(t, "CancelBySaga", mock.Anything, mock.Anything)
+	notifier.AssertNotCalled(t, "CancelConfirmation")
+	notifier.AssertNotCalled(t, "CommitConfirmation")
+	subStore.AssertExpectations(t)
+	notifier.AssertExpectations(t)
 }
 
 func TestConfirm(t *testing.T) {
@@ -272,7 +339,7 @@ func TestConfirm(t *testing.T) {
 
 			svc := NewSubscriptionService(
 				subStore, new(mockRepoStore), new(mockGitHubClient),
-				new(mockMailer), newTestURLs(), new(mockTokenGenerator),
+				new(mockNotifier), newTestURLs(), new(mockTokenGenerator),
 			)
 			err := svc.Confirm(context.Background(), tc.token)
 			if tc.expectedErr != nil {
@@ -331,7 +398,7 @@ func TestUnsubscribe(t *testing.T) {
 
 			svc := NewSubscriptionService(
 				subStore, new(mockRepoStore), new(mockGitHubClient),
-				new(mockMailer), newTestURLs(), new(mockTokenGenerator),
+				new(mockNotifier), newTestURLs(), new(mockTokenGenerator),
 			)
 			err := svc.Unsubscribe(context.Background(), tc.token)
 			if tc.expectedErr != nil {
@@ -398,7 +465,7 @@ func TestGetSubscriptionsByEmail(t *testing.T) {
 
 			svc := NewSubscriptionService(
 				subStore, repoStore, new(mockGitHubClient),
-				new(mockMailer), newTestURLs(), new(mockTokenGenerator),
+				new(mockNotifier), newTestURLs(), new(mockTokenGenerator),
 			)
 			result, err := svc.GetSubscriptionsByEmail(context.Background(), tc.email)
 			if tc.expectedErr != nil {
