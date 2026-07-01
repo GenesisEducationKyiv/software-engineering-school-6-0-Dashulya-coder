@@ -3,8 +3,15 @@ package rest
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"log/slog"
 	"net/http"
+	"net/mail"
+	"net/url"
+
+	"github.com/google/uuid"
+
+	"github.com/Dashulya-coder/CaseTaskNotifier/notifier/internal/delivery"
 )
 
 type Service interface {
@@ -42,15 +49,22 @@ func reserveHandler(svc Service) http.HandlerFunc {
 			writeError(w, http.StatusBadRequest, "invalid request body")
 			return
 		}
-		if req.SagaID == "" || req.Email == "" || req.ConfirmURL == "" {
-			writeError(w, http.StatusBadRequest, "missing required fields")
+		if err := uuid.Validate(req.SagaID); err != nil {
+			writeError(w, http.StatusBadRequest, "invalid saga_id")
+			return
+		}
+		if _, err := mail.ParseAddress(req.Email); err != nil {
+			writeError(w, http.StatusBadRequest, "invalid email")
+			return
+		}
+		if !validURL(req.ConfirmURL) {
+			writeError(w, http.StatusBadRequest, "invalid confirm_url")
 			return
 		}
 
 		ok, err := svc.ReserveConfirmation(r.Context(), req.SagaID, req.Email, req.ConfirmURL)
 		if err != nil {
-			slog.Error("rest reserve confirmation failed", "error", err)
-			writeError(w, http.StatusInternalServerError, "failed to reserve confirmation")
+			writeServiceError(w, "reserve confirmation", err)
 			return
 		}
 
@@ -65,15 +79,14 @@ func commitHandler(svc Service) http.HandlerFunc {
 			writeError(w, http.StatusBadRequest, "invalid request body")
 			return
 		}
-		if req.SagaID == "" {
-			writeError(w, http.StatusBadRequest, "missing saga_id")
+		if err := uuid.Validate(req.SagaID); err != nil {
+			writeError(w, http.StatusBadRequest, "invalid saga_id")
 			return
 		}
 
 		ok, err := svc.CommitConfirmation(r.Context(), req.SagaID)
 		if err != nil {
-			slog.Error("rest commit confirmation failed", "error", err)
-			writeError(w, http.StatusInternalServerError, "failed to commit confirmation")
+			writeServiceError(w, "commit confirmation", err)
 			return
 		}
 
@@ -88,14 +101,13 @@ func cancelHandler(svc Service) http.HandlerFunc {
 			writeError(w, http.StatusBadRequest, "invalid request body")
 			return
 		}
-		if req.SagaID == "" {
-			writeError(w, http.StatusBadRequest, "missing saga_id")
+		if err := uuid.Validate(req.SagaID); err != nil {
+			writeError(w, http.StatusBadRequest, "invalid saga_id")
 			return
 		}
 
 		if err := svc.CancelConfirmation(r.Context(), req.SagaID); err != nil {
-			slog.Error("rest cancel confirmation failed", "error", err)
-			writeError(w, http.StatusInternalServerError, "failed to cancel confirmation")
+			writeServiceError(w, "cancel confirmation", err)
 			return
 		}
 
@@ -103,10 +115,27 @@ func cancelHandler(svc Service) http.HandlerFunc {
 	}
 }
 
+func validURL(s string) bool {
+	u, err := url.ParseRequestURI(s)
+	return err == nil && u.Scheme != "" && u.Host != ""
+}
+
 func decode(r *http.Request, dst any) error {
 	dec := json.NewDecoder(r.Body)
 	dec.DisallowUnknownFields()
 	return dec.Decode(dst)
+}
+
+func writeServiceError(w http.ResponseWriter, op string, err error) {
+	switch {
+	case errors.Is(err, delivery.ErrNotReserved):
+		writeError(w, http.StatusConflict, "confirmation not reserved")
+	case errors.Is(err, delivery.ErrCanceled):
+		writeError(w, http.StatusConflict, "confirmation already canceled")
+	default:
+		slog.Error("rest "+op+" failed", "error", err)
+		writeError(w, http.StatusInternalServerError, "failed to "+op)
+	}
 }
 
 func writeJSON(w http.ResponseWriter, status int, body any) {
