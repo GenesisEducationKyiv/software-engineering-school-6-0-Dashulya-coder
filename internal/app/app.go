@@ -27,6 +27,11 @@ import (
 
 var _ subscription.TokenGenerator = (*token.Generator)(nil)
 
+type confirmationNotifier interface {
+	subscription.ConfirmationNotifier
+	Close() error
+}
+
 const (
 	readHeaderTimeout = 5 * time.Second
 	readTimeout       = 10 * time.Second
@@ -62,9 +67,17 @@ func Run() error {
 
 	ghClient := github.NewClient(cfg.GithubToken)
 
-	notifier, err := notificationclient.New(cfg.NotifierAddr)
-	if err != nil {
-		return err
+	var notifier confirmationNotifier
+	if cfg.NotifierTransport == "rest" {
+		slog.Info("notifier transport selected", "transport", "rest", "addr", cfg.NotifierRESTAddr)
+		notifier = notificationclient.NewRESTClient(cfg.NotifierRESTAddr)
+	} else {
+		slog.Info("notifier transport selected", "transport", "grpc", "addr", cfg.NotifierAddr)
+		grpcClient, err := notificationclient.New(cfg.NotifierAddr)
+		if err != nil {
+			return err
+		}
+		notifier = grpcClient
 	}
 	defer func() {
 		if err := notifier.Close(); err != nil {

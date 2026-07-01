@@ -8,15 +8,17 @@ import (
 )
 
 type Config struct {
-	Port          string
-	DatabaseURL   string
-	GithubToken   string
-	NotifierAddr  string
-	RabbitURL     string
-	BaseURL       string
-	ScanInterval  time.Duration
-	LogLevel      string
-	LogSampleRate uint64
+	Port              string
+	DatabaseURL       string
+	GithubToken       string
+	NotifierAddr      string
+	NotifierRESTAddr  string
+	NotifierTransport string
+	RabbitURL         string
+	BaseURL           string
+	ScanInterval      time.Duration
+	LogLevel          string
+	LogSampleRate     uint64
 }
 
 func Load() *Config {
@@ -31,15 +33,17 @@ func Load() *Config {
 	}
 
 	cfg := &Config{
-		Port:          getEnv("PORT", "8080"),
-		DatabaseURL:   getEnv("DATABASE_URL", ""),
-		GithubToken:   os.Getenv("GITHUB_TOKEN"),
-		NotifierAddr:  getEnv("NOTIFIER_ADDR", "localhost:9091"),
-		RabbitURL:     getEnv("RABBITMQ_URL", "amqp://guest:guest@localhost:5672/"),
-		BaseURL:       getEnv("BASE_URL", "http://localhost:8080"),
-		ScanInterval:  scanInterval,
-		LogLevel:      getEnv("LOG_LEVEL", "info"),
-		LogSampleRate: logSampleRate,
+		Port:              getEnv("PORT", "8080"),
+		DatabaseURL:       getEnv("DATABASE_URL", ""),
+		GithubToken:       os.Getenv("GITHUB_TOKEN"),
+		NotifierAddr:      getEnv("NOTIFIER_ADDR", "localhost:9091"),
+		NotifierRESTAddr:  getEnv("NOTIFIER_REST_ADDR", "http://localhost:9094"),
+		NotifierTransport: getEnv("NOTIFIER_TRANSPORT", "grpc"),
+		RabbitURL:         getEnv("RABBITMQ_URL", "amqp://guest:guest@localhost:5672/"),
+		BaseURL:           getEnv("BASE_URL", "http://localhost:8080"),
+		ScanInterval:      scanInterval,
+		LogLevel:          getEnv("LOG_LEVEL", "info"),
+		LogSampleRate:     logSampleRate,
 	}
 
 	if cfg.DatabaseURL == "" {
