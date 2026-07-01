@@ -19,10 +19,11 @@ func NewDeliveries(db *sql.DB) *Deliveries {
 
 func (d *Deliveries) Reserve(ctx context.Context, del delivery.Delivery) (bool, error) {
 	const query = `INSERT INTO confirmation_deliveries (saga_id, email, confirm_url, status)
-		VALUES ($1, $2, $3, 'PENDING')
+		VALUES ($1, $2, $3, $4)
 		ON CONFLICT (saga_id) DO NOTHING`
 
-	res, err := d.db.ExecContext(ctx, query, del.SagaID, del.Email, del.ConfirmURL)
+	res, err := d.db.ExecContext(ctx, query,
+		del.SagaID, del.Email, del.ConfirmURL, string(delivery.StatusPending))
 	if err != nil {
 		return false, fmt.Errorf("reserve confirmation: %w", err)
 	}
@@ -57,10 +58,11 @@ func (d *Deliveries) Get(ctx context.Context, sagaID string) (*delivery.Delivery
 
 func (d *Deliveries) MarkSent(ctx context.Context, sagaID string) error {
 	const query = `UPDATE confirmation_deliveries
-		SET status = 'SENT', updated_at = now()
-		WHERE saga_id = $1 AND status = 'PENDING'`
+		SET status = $2, updated_at = now()
+		WHERE saga_id = $1 AND status = $3`
 
-	if _, err := d.db.ExecContext(ctx, query, sagaID); err != nil {
+	if _, err := d.db.ExecContext(ctx, query,
+		sagaID, string(delivery.StatusSent), string(delivery.StatusPending)); err != nil {
 		return fmt.Errorf("mark confirmation sent: %w", err)
 	}
 	return nil
@@ -68,10 +70,11 @@ func (d *Deliveries) MarkSent(ctx context.Context, sagaID string) error {
 
 func (d *Deliveries) Cancel(ctx context.Context, sagaID string) error {
 	const query = `UPDATE confirmation_deliveries
-		SET status = 'CANCELED', updated_at = now()
-		WHERE saga_id = $1 AND status = 'PENDING'`
+		SET status = $2, updated_at = now()
+		WHERE saga_id = $1 AND status = $3`
 
-	if _, err := d.db.ExecContext(ctx, query, sagaID); err != nil {
+	if _, err := d.db.ExecContext(ctx, query,
+		sagaID, string(delivery.StatusCanceled), string(delivery.StatusPending)); err != nil {
 		return fmt.Errorf("cancel confirmation: %w", err)
 	}
 	return nil

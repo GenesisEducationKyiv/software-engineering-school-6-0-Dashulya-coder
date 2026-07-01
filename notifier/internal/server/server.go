@@ -2,6 +2,7 @@ package server
 
 import (
 	"context"
+	"errors"
 	"log/slog"
 
 	"buf.build/go/protovalidate"
@@ -9,6 +10,7 @@ import (
 	"google.golang.org/grpc/status"
 
 	notificationv1 "github.com/Dashulya-coder/CaseTaskNotifier/notifier/gen/notification/v1"
+	"github.com/Dashulya-coder/CaseTaskNotifier/notifier/internal/delivery"
 )
 
 type Service interface {
@@ -58,8 +60,15 @@ func (s *Server) CommitConfirmation(
 
 	ok, err := s.svc.CommitConfirmation(ctx, req.GetSagaId())
 	if err != nil {
-		slog.Error("commit confirmation failed", "trace_id", traceID(ctx), "error", err)
-		return nil, status.Error(codes.Internal, "failed to commit confirmation")
+		switch {
+		case errors.Is(err, delivery.ErrNotReserved):
+			return nil, status.Error(codes.FailedPrecondition, "confirmation not reserved")
+		case errors.Is(err, delivery.ErrCanceled):
+			return nil, status.Error(codes.Aborted, "confirmation already canceled")
+		default:
+			slog.Error("commit confirmation failed", "trace_id", traceID(ctx), "error", err)
+			return nil, status.Error(codes.Internal, "failed to commit confirmation")
+		}
 	}
 
 	return &notificationv1.ConfirmationResponse{Ok: ok}, nil

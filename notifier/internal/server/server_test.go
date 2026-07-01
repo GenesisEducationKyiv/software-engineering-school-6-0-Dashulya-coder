@@ -17,6 +17,7 @@ import (
 	"google.golang.org/grpc/test/bufconn"
 
 	notificationv1 "github.com/Dashulya-coder/CaseTaskNotifier/notifier/gen/notification/v1"
+	"github.com/Dashulya-coder/CaseTaskNotifier/notifier/internal/delivery"
 	"github.com/Dashulya-coder/CaseTaskNotifier/notifier/internal/server"
 )
 
@@ -145,6 +146,32 @@ func TestCommitConfirmation(t *testing.T) {
 		require.Equal(t, codes.Internal, status.Code(err))
 		st, _ := status.FromError(err)
 		assert.Equal(t, "failed to commit confirmation", st.Message())
+	})
+
+	t.Run("missing reservation maps to FailedPrecondition", func(t *testing.T) {
+		svc := new(mockService)
+		svc.On("CommitConfirmation", mock.Anything, mock.Anything).
+			Return(false, delivery.ErrNotReserved).Once()
+		client := newTestClient(t, svc)
+
+		_, err := client.CommitConfirmation(context.Background(), &notificationv1.CommitConfirmationRequest{
+			SagaId: testSaga,
+		})
+
+		assert.Equal(t, codes.FailedPrecondition, status.Code(err))
+	})
+
+	t.Run("canceled reservation maps to Aborted", func(t *testing.T) {
+		svc := new(mockService)
+		svc.On("CommitConfirmation", mock.Anything, mock.Anything).
+			Return(false, delivery.ErrCanceled).Once()
+		client := newTestClient(t, svc)
+
+		_, err := client.CommitConfirmation(context.Background(), &notificationv1.CommitConfirmationRequest{
+			SagaId: testSaga,
+		})
+
+		assert.Equal(t, codes.Aborted, status.Code(err))
 	})
 }
 

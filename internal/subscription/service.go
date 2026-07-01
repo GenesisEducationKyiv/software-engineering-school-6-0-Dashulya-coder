@@ -125,10 +125,22 @@ func (s *SubscriptionServiceImpl) Subscribe(ctx context.Context, email, fullName
 	}
 
 	sagaID := uuid.NewString()
+
+	if err := saga.Run(ctx, s.buildSubscribeSaga(sub, email, sagaID)...); err != nil {
+		if errors.Is(err, errAlreadyActive) {
+			return ErrAlreadySubscribed
+		}
+		return err
+	}
+
+	return nil
+}
+
+func (s *SubscriptionServiceImpl) buildSubscribeSaga(sub *Subscription, email, sagaID string) []saga.Step {
 	confirmURL := s.urls.ConfirmURL(sub.ConfirmToken)
 
-	err = saga.Run(ctx,
-		saga.Step{
+	return []saga.Step{
+		{
 			Name: "create-subscription",
 			Action: func(ctx context.Context) error {
 				active, err := s.subRepo.CreateForSaga(ctx, sub, sagaID)
@@ -144,7 +156,7 @@ func (s *SubscriptionServiceImpl) Subscribe(ctx context.Context, email, fullName
 				return s.subRepo.CancelBySaga(ctx, sagaID)
 			},
 		},
-		saga.Step{
+		{
 			Name: "reserve-confirmation",
 			Action: func(ctx context.Context) error {
 				return s.notifier.ReserveConfirmation(ctx, sagaID, email, confirmURL)
@@ -153,22 +165,14 @@ func (s *SubscriptionServiceImpl) Subscribe(ctx context.Context, email, fullName
 				return s.notifier.CancelConfirmation(ctx, sagaID)
 			},
 		},
-		saga.Step{
+		{
 			Name:  "commit-confirmation",
 			Pivot: true,
 			Action: func(ctx context.Context) error {
 				return s.notifier.CommitConfirmation(ctx, sagaID)
 			},
 		},
-	)
-	if err != nil {
-		if errors.Is(err, errAlreadyActive) {
-			return ErrAlreadySubscribed
-		}
-		return err
 	}
-
-	return nil
 }
 
 func (s *SubscriptionServiceImpl) Confirm(ctx context.Context, token string) error {
