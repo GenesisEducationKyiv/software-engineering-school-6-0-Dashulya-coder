@@ -26,6 +26,9 @@ go.work
 .env
 .env.local
 
+# Claude Code project instructions (local only)
+CLAUDE.md
+
 # OS
 .DS_Store
 Thumbs.db

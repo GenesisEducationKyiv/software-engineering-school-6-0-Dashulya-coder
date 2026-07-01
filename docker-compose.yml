@@ -1,7 +1,7 @@
 services:
   db:
     image: postgres:15
-    container_name: notifier-db
+    container_name: monolith-db
     environment:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
@@ -9,12 +9,47 @@ services:
     ports:
       - "5432:5432"
 
+  notifier-db:
+    image: postgres:15
+    container_name: notifier-notify-db
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: notifications
+    ports:
+      - "5434:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d notifications"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
   mailhog:
     image: mailhog/mailhog
     container_name: mailhog
     ports:
       - "1025:1025"
       - "8025:8025"
+
+  notifier:
+    build:
+      context: .
+      dockerfile: Dockerfile.notifier
+    container_name: notifier-svc
+    environment:
+      GRPC_PORT: "9091"
+      METRICS_PORT: "9092"
+      DATABASE_URL: "postgres://postgres:postgres@notifier-db:5432/notifications?sslmode=disable"
+      SMTP_HOST: mailhog
+      SMTP_PORT: "1025"
+    ports:
+      - "9091:9091"
+      - "9092:9092"
+    depends_on:
+      notifier-db:
+        condition: service_healthy
+      mailhog:
+        condition: service_started
 
   prometheus:
     image: prom/prometheus:latest
@@ -54,10 +89,7 @@ services:
       - "8080:8080"
     environment:
       - DATABASE_URL=postgres://postgres:postgres@db:5432/notifier?sslmode=disable
-      - SMTP_HOST=mailhog
-      - SMTP_PORT=1025
-      - SMTP_USER=
-      - SMTP_PASS=
+      - NOTIFIER_ADDR=notifier:9091
       - GITHUB_TOKEN=
       - BASE_URL=http://localhost:8080
       - PORT=8080
@@ -66,7 +98,7 @@ services:
       - LOG_SAMPLE_RATE=10
     depends_on:
       - db
-      - mailhog
+      - notifier
 
   elasticsearch:
     image: docker.elastic.co/elasticsearch/elasticsearch:8.13.0

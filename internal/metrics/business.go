@@ -22,14 +22,6 @@ var (
 		Help: "Total number of new releases detected across all repos.",
 	})
 
-	EmailsSentTotal = promauto.NewCounterVec(
-		prometheus.CounterOpts{
-			Name: "emails_sent_total",
-			Help: "Total emails sent by type and outcome.",
-		},
-		[]string{"type", "status"},
-	)
-
 	GitHubRateLimitHitsTotal = promauto.NewCounter(prometheus.CounterOpts{
 		Name: "github_rate_limit_hits_total",
 		Help: "Total number of times the GitHub API returned a rate-limit response.",

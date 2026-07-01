@@ -11,10 +11,7 @@ type Config struct {
 	Port          string
 	DatabaseURL   string
 	GithubToken   string
-	SMTPHost      string
-	SMTPPort      int
-	SMTPUser      string
-	SMTPPass      string
+	NotifierAddr  string
 	BaseURL       string
 	ScanInterval  time.Duration
 	LogLevel      string
@@ -22,11 +19,6 @@ type Config struct {
 }
 
 func Load() *Config {
-	smtpPort, err := strconv.Atoi(getEnv("SMTP_PORT", "1025"))
-	if err != nil {
-		log.Fatal("invalid SMTP_PORT")
-	}
-
 	scanInterval, err := time.ParseDuration(getEnv("SCAN_INTERVAL", "5m"))
 	if err != nil {
 		log.Fatal("invalid SCAN_INTERVAL")
@@ -41,10 +33,7 @@ func Load() *Config {
 		Port:          getEnv("PORT", "8080"),
 		DatabaseURL:   getEnv("DATABASE_URL", ""),
 		GithubToken:   os.Getenv("GITHUB_TOKEN"),
-		SMTPHost:      os.Getenv("SMTP_HOST"),
-		SMTPPort:      smtpPort,
-		SMTPUser:      os.Getenv("SMTP_USER"),
-		SMTPPass:      os.Getenv("SMTP_PASS"),
+		NotifierAddr:  getEnv("NOTIFIER_ADDR", "localhost:9091"),
 		BaseURL:       getEnv("BASE_URL", "http://localhost:8080"),
 		ScanInterval:  scanInterval,
 		LogLevel:      getEnv("LOG_LEVEL", "info"),
