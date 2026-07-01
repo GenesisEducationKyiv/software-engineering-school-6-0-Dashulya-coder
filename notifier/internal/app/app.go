@@ -22,6 +22,7 @@ import (
 	"github.com/Dashulya-coder/CaseTaskNotifier/notifier/internal/config"
 	"github.com/Dashulya-coder/CaseTaskNotifier/notifier/internal/consumer"
 	"github.com/Dashulya-coder/CaseTaskNotifier/notifier/internal/delivery"
+	"github.com/Dashulya-coder/CaseTaskNotifier/notifier/internal/rest"
 	"github.com/Dashulya-coder/CaseTaskNotifier/notifier/internal/server"
 	"github.com/Dashulya-coder/CaseTaskNotifier/notifier/internal/smtp"
 	"github.com/Dashulya-coder/CaseTaskNotifier/notifier/internal/store"
@@ -98,11 +99,25 @@ func Run() error {
 		ReadHeaderTimeout: readHeaderTimeout,
 	}
 
+	restServer := &http.Server{
+		Addr:              ":" + cfg.RESTPort,
+		Handler:           rest.NewHandler(svc),
+		ReadHeaderTimeout: readHeaderTimeout,
+	}
+
 	go func() {
 		slog.Info("notifier metrics server started", "port", cfg.MetricsPort)
 		if err := metricsServer.ListenAndServe(); err != nil &&
 			!errors.Is(err, http.ErrServerClosed) {
 			slog.Error("metrics server error", "error", err)
+		}
+	}()
+
+	go func() {
+		slog.Info("notifier rest server started", "port", cfg.RESTPort)
+		if err := restServer.ListenAndServe(); err != nil &&
+			!errors.Is(err, http.ErrServerClosed) {
+			slog.Error("rest server error", "error", err)
 		}
 	}()
 
@@ -123,6 +138,9 @@ func Run() error {
 		defer cancel()
 		if err := metricsServer.Shutdown(shutdownCtx); err != nil {
 			slog.Error("metrics server shutdown error", "error", err)
+		}
+		if err := restServer.Shutdown(shutdownCtx); err != nil {
+			slog.Error("rest server shutdown error", "error", err)
 		}
 	}()
 
