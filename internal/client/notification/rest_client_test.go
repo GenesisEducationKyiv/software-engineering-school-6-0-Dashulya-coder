@@ -35,14 +35,30 @@ func TestRESTClient_ReserveConfirmation(t *testing.T) {
 	assert.Equal(t, map[string]string{"saga_id": "s1", "email": "a@b.com", "confirm_url": "http://x/c"}, gotBody)
 }
 
-func TestRESTClient_ServerErrorIsPropagated(t *testing.T) {
+func TestRESTClient_ServerErrorIsUnavailable(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusInternalServerError)
+		_, _ = w.Write([]byte(`{"error":"failed to commit confirmation"}`))
 	}))
 	defer srv.Close()
 
 	client := notification.NewRESTClient(srv.URL)
 	err := client.CommitConfirmation(context.Background(), "s1")
 
-	require.Error(t, err)
+	require.ErrorIs(t, err, notification.ErrNotifierUnavailable)
+	assert.Contains(t, err.Error(), "failed to commit confirmation")
+}
+
+func TestRESTClient_ClientErrorIsRejected(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusConflict)
+		_, _ = w.Write([]byte(`{"error":"confirmation already canceled"}`))
+	}))
+	defer srv.Close()
+
+	client := notification.NewRESTClient(srv.URL)
+	err := client.CommitConfirmation(context.Background(), "s1")
+
+	require.ErrorIs(t, err, notification.ErrNotifierRejected)
+	assert.NotErrorIs(t, err, notification.ErrNotifierUnavailable)
 }

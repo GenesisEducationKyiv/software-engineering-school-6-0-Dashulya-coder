@@ -4,7 +4,9 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
+	"io"
 	"log/slog"
 	"net/http"
 	"strings"
@@ -12,6 +14,11 @@ import (
 )
 
 const restTimeout = 30 * time.Second
+
+var (
+	ErrNotifierRejected    = errors.New("notifier rejected request")
+	ErrNotifierUnavailable = errors.New("notifier unavailable")
+)
 
 type RESTClient struct {
 	baseURL string
@@ -55,7 +62,7 @@ func (c *RESTClient) post(ctx context.Context, path string, payload map[string]s
 
 	resp, err := c.http.Do(req)
 	if err != nil {
-		return fmt.Errorf("call %s: %w", path, err)
+		return fmt.Errorf("%w: call %s: %w", ErrNotifierUnavailable, path, err)
 	}
 	defer func() {
 		if err := resp.Body.Close(); err != nil {
@@ -64,10 +71,24 @@ func (c *RESTClient) post(ctx context.Context, path string, payload map[string]s
 	}()
 
 	if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("notifier rest %s: status %d", path, resp.StatusCode)
+		sentinel := ErrNotifierRejected
+		if resp.StatusCode >= http.StatusInternalServerError {
+			sentinel = ErrNotifierUnavailable
+		}
+		return fmt.Errorf("%w: %s: status %d: %s", sentinel, path, resp.StatusCode, readError(resp.Body))
 	}
 
 	return nil
+}
+
+func readError(body io.Reader) string {
+	var payload struct {
+		Error string `json:"error"`
+	}
+	if err := json.NewDecoder(body).Decode(&payload); err != nil || payload.Error == "" {
+		return "unknown error"
+	}
+	return payload.Error
 }
 
 func (c *RESTClient) Close() error {
