@@ -122,7 +122,23 @@ func TestPostSubscribe_Duplicate(t *testing.T) {
 	})
 }
 
-func TestPostSubscribe_NotifierFailureCompensates(t *testing.T) {
+func TestPostSubscribe_ReserveFailureCompensates(t *testing.T) {
+	t.Cleanup(func() { testdb.TruncateTables(t, testDB) })
+
+	gh := new(mockGitHubClient)
+	gh.On("RepositoryExists", mock.Anything, mock.Anything, mock.Anything).Return(true, nil)
+
+	notifier := &stubNotifier{reserveErr: errors.New("notifier unavailable")}
+	srv := testapp.NewServer(t, testDB, gh, notifier)
+
+	resp := testhttp.DoPost(t, srv.Client(), srv.URL+"/api/subscribe",
+		`{"email":"user@example.com","repo":"cli/cli"}`)
+	require.Equal(t, http.StatusInternalServerError, resp.StatusCode)
+
+	assert.Zero(t, countSubscriptions(t, "user@example.com", "cli/cli"))
+}
+
+func TestPostSubscribe_CommitPivotFailureKeepsSubscription(t *testing.T) {
 	t.Cleanup(func() { testdb.TruncateTables(t, testDB) })
 
 	gh := new(mockGitHubClient)
@@ -135,8 +151,8 @@ func TestPostSubscribe_NotifierFailureCompensates(t *testing.T) {
 		`{"email":"user@example.com","repo":"cli/cli"}`)
 	require.Equal(t, http.StatusInternalServerError, resp.StatusCode)
 
-	assert.Positive(t, notifier.cancelCalls)
-	assert.Zero(t, countSubscriptions(t, "user@example.com", "cli/cli"))
+	assert.Zero(t, notifier.cancelCalls)
+	assert.Equal(t, 1, countSubscriptions(t, "user@example.com", "cli/cli"))
 }
 
 func countSubscriptions(t *testing.T, email, repoFullName string) int {

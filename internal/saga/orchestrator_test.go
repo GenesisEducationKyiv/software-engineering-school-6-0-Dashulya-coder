@@ -78,3 +78,54 @@ func TestRun_CompensationErrorDoesNotStopOthers(t *testing.T) {
 	require.ErrorIs(t, err, boom)
 	assert.Equal(t, []string{"do:a", "do:b", "do:c", "undo:b", "undo:a"}, log)
 }
+
+func TestRun_PivotFailureDoesNotCompensate(t *testing.T) {
+	var log []string
+	boom := errors.New("boom")
+
+	err := saga.Run(context.Background(),
+		saga.Step{Name: "a", Action: action(&log, "a", nil), Compensation: compensation(&log, "a", nil)},
+		saga.Step{Name: "b", Action: action(&log, "b", nil), Compensation: compensation(&log, "b", nil)},
+		saga.Step{Name: "pivot", Pivot: true, Action: action(&log, "pivot", boom)},
+	)
+
+	require.ErrorIs(t, err, boom)
+	assert.NotContains(t, log, "undo:a")
+	assert.NotContains(t, log, "undo:b")
+}
+
+func TestRun_PivotIsRetriedUntilSuccess(t *testing.T) {
+	var log []string
+	boom := errors.New("boom")
+	attempts := 0
+
+	err := saga.Run(context.Background(),
+		saga.Step{Name: "a", Action: action(&log, "a", nil), Compensation: compensation(&log, "a", nil)},
+		saga.Step{Name: "pivot", Pivot: true, Action: func(context.Context) error {
+			attempts++
+			if attempts < 2 {
+				return boom
+			}
+			return nil
+		}},
+	)
+
+	require.NoError(t, err)
+	assert.Equal(t, 2, attempts)
+	assert.NotContains(t, log, "undo:a")
+}
+
+func TestRun_PivotRetriesAreBounded(t *testing.T) {
+	boom := errors.New("boom")
+	attempts := 0
+
+	err := saga.Run(context.Background(),
+		saga.Step{Name: "pivot", Pivot: true, Action: func(context.Context) error {
+			attempts++
+			return boom
+		}},
+	)
+
+	require.ErrorIs(t, err, boom)
+	assert.Equal(t, 3, attempts)
+}

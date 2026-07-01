@@ -154,7 +154,8 @@ func (s *SubscriptionServiceImpl) Subscribe(ctx context.Context, email, fullName
 			},
 		},
 		saga.Step{
-			Name: "commit-confirmation",
+			Name:  "commit-confirmation",
+			Pivot: true,
 			Action: func(ctx context.Context) error {
 				return s.notifier.CommitConfirmation(ctx, sagaID)
 			},

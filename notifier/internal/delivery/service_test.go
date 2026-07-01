@@ -193,6 +193,25 @@ func TestCommitConfirmation(t *testing.T) {
 		assert.False(t, ok)
 		deliveries.AssertNotCalled(t, "MarkSent")
 	})
+
+	t.Run("transient mark failure is retried after a successful send", func(t *testing.T) {
+		deliveries := new(mockDeliveries)
+		sender := new(mockSender)
+		deliveries.On("Get", mock.Anything, "saga-1").Return(&delivery.Delivery{
+			SagaID: "saga-1", Email: "a@b.com", ConfirmURL: "url", Status: delivery.StatusPending,
+		}, nil).Once()
+		sender.On("SendConfirm", mock.Anything, "a@b.com", "url").Return(nil).Once()
+		deliveries.On("MarkSent", mock.Anything, "saga-1").Return(errBoom).Once()
+		deliveries.On("MarkSent", mock.Anything, "saga-1").Return(nil).Once()
+
+		ok, err := delivery.New(new(mockLedger), deliveries, sender).
+			CommitConfirmation(context.Background(), "saga-1")
+
+		require.NoError(t, err)
+		assert.True(t, ok)
+		sender.AssertNumberOfCalls(t, "SendConfirm", 1)
+		deliveries.AssertNumberOfCalls(t, "MarkSent", 2)
+	})
 }
 
 func TestCancelConfirmation(t *testing.T) {

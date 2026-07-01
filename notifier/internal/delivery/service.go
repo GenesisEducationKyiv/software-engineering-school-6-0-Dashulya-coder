@@ -6,6 +6,12 @@ import (
 	"encoding/binary"
 	"encoding/hex"
 	"errors"
+	"time"
+)
+
+const (
+	markSentMaxAttempts = 3
+	markSentRetryDelay  = 100 * time.Millisecond
 )
 
 var (
@@ -83,11 +89,33 @@ func (s *Service) CommitConfirmation(ctx context.Context, sagaID string) (bool, 
 		return false, err
 	}
 
-	if err := s.deliveries.MarkSent(ctx, sagaID); err != nil {
+	if err := s.markSent(ctx, sagaID); err != nil {
 		return false, err
 	}
 
 	return true, nil
+}
+
+func (s *Service) markSent(ctx context.Context, sagaID string) error {
+	var err error
+
+	for attempt := 1; attempt <= markSentMaxAttempts; attempt++ {
+		if err = s.deliveries.MarkSent(ctx, sagaID); err == nil {
+			return nil
+		}
+
+		if attempt == markSentMaxAttempts {
+			break
+		}
+
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-time.After(markSentRetryDelay):
+		}
+	}
+
+	return err
 }
 
 func (s *Service) CancelConfirmation(ctx context.Context, sagaID string) error {

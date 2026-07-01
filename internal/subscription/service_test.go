@@ -235,7 +235,7 @@ func TestSubscribe_ReSubscribeAfterUnsubscribe(t *testing.T) {
 	tokenGen.AssertExpectations(t)
 }
 
-func TestSubscribe_CommitFailureCompensates(t *testing.T) {
+func TestSubscribe_CommitPivotFailureDoesNotCompensate(t *testing.T) {
 	subStore := new(mockSubscriptionStore)
 	repoStore := new(mockRepoStore)
 	ghClient := new(mockGitHubClient)
@@ -250,17 +250,14 @@ func TestSubscribe_CommitFailureCompensates(t *testing.T) {
 	subStore.On("CreateForSaga", mock.Anything, mock.Anything, mock.Anything).Return(false, nil).Once()
 	notifier.On("ReserveConfirmation", mock.Anything, mock.Anything, mock.Anything, mock.Anything).
 		Return(nil).Once()
-	notifier.On("CommitConfirmation", mock.Anything, mock.Anything).Return(errBoom).Once()
-	notifier.On("CancelConfirmation", mock.Anything, mock.Anything).Return(nil).Once()
-	subStore.On("CancelBySaga", mock.Anything, mock.Anything).Return(nil).Once()
+	notifier.On("CommitConfirmation", mock.Anything, mock.Anything).Return(errBoom)
 
 	svc := NewSubscriptionService(subStore, repoStore, ghClient, notifier, newTestURLs(), tokenGen)
 	require.Error(t, svc.Subscribe(context.Background(), "test@example.com", "golang/go"))
 
-	notifier.AssertCalled(t, "CancelConfirmation", mock.Anything, mock.Anything)
-	subStore.AssertCalled(t, "CancelBySaga", mock.Anything, mock.Anything)
+	notifier.AssertNotCalled(t, "CancelConfirmation")
+	subStore.AssertNotCalled(t, "CancelBySaga")
 	subStore.AssertExpectations(t)
-	notifier.AssertExpectations(t)
 }
 
 func TestSubscribe_ReserveFailureCompensatesSubscriptionOnly(t *testing.T) {
