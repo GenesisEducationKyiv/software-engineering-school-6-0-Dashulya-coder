@@ -7,13 +7,29 @@ import "buf/validate/validate.proto";
 option go_package = "github.com/Dashulya-coder/CaseTaskNotifier/gen/notification/v1;notificationv1";
 
 service NotificationService {
-  rpc SendConfirm(SendConfirmRequest) returns (SendResponse);
+  rpc ReserveConfirmation(ReserveConfirmationRequest) returns (ConfirmationResponse);
+  rpc CommitConfirmation(CommitConfirmationRequest) returns (ConfirmationResponse);
+  rpc CancelConfirmation(CancelConfirmationRequest) returns (ConfirmationResponse);
+
   rpc SendRelease(SendReleaseRequest) returns (SendResponse);
 }
 
-message SendConfirmRequest {
-  string email = 1 [(buf.validate.field).string.email = true];
-  string confirm_url = 2 [(buf.validate.field).string.uri = true];
+message ReserveConfirmationRequest {
+  string saga_id = 1 [(buf.validate.field).string.uuid = true];
+  string email = 2 [(buf.validate.field).string.email = true];
+  string confirm_url = 3 [(buf.validate.field).string.uri = true];
+}
+
+message CommitConfirmationRequest {
+  string saga_id = 1 [(buf.validate.field).string.uuid = true];
+}
+
+message CancelConfirmationRequest {
+  string saga_id = 1 [(buf.validate.field).string.uuid = true];
+}
+
+message ConfirmationResponse {
+  bool ok = 1;
 }
 
 message SendReleaseRequest {

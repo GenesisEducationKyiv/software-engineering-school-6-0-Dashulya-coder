@@ -31,16 +31,45 @@ func New(addr string) (*Client, error) {
 	}, nil
 }
 
-func (c *Client) SendConfirmation(email, confirmLink string) error {
-	ctx, cancel := context.WithTimeout(context.Background(), rpcTimeout)
+func (c *Client) ReserveConfirmation(ctx context.Context, sagaID, email, confirmURL string) error {
+	ctx, cancel := context.WithTimeout(ctx, rpcTimeout)
 	defer cancel()
 
-	_, err := c.client.SendConfirm(ctx, &notificationv1.SendConfirmRequest{
+	_, err := c.client.ReserveConfirmation(ctx, &notificationv1.ReserveConfirmationRequest{
+		SagaId:     sagaID,
 		Email:      email,
-		ConfirmUrl: confirmLink,
+		ConfirmUrl: confirmURL,
 	})
 	if err != nil {
-		return fmt.Errorf("send confirmation: %w", err)
+		return fmt.Errorf("reserve confirmation: %w", err)
+	}
+
+	return nil
+}
+
+func (c *Client) CommitConfirmation(ctx context.Context, sagaID string) error {
+	ctx, cancel := context.WithTimeout(ctx, rpcTimeout)
+	defer cancel()
+
+	_, err := c.client.CommitConfirmation(ctx, &notificationv1.CommitConfirmationRequest{
+		SagaId: sagaID,
+	})
+	if err != nil {
+		return fmt.Errorf("commit confirmation: %w", err)
+	}
+
+	return nil
+}
+
+func (c *Client) CancelConfirmation(ctx context.Context, sagaID string) error {
+	ctx, cancel := context.WithTimeout(ctx, rpcTimeout)
+	defer cancel()
+
+	_, err := c.client.CancelConfirmation(ctx, &notificationv1.CancelConfirmationRequest{
+		SagaId: sagaID,
+	})
+	if err != nil {
+		return fmt.Errorf("cancel confirmation: %w", err)
 	}
 
 	return nil
@@ -71,4 +100,4 @@ func (c *Client) Close() error {
 	return nil
 }
 
-var _ mailer.Mailer = (*Client)(nil)
+var _ mailer.ReleaseSender = (*Client)(nil)

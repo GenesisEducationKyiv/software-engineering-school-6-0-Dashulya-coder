@@ -19,15 +19,19 @@ import (
 const _ = grpc.SupportPackageIsVersion9
 
 const (
-	NotificationService_SendConfirm_FullMethodName = "/notification.v1.NotificationService/SendConfirm"
-	NotificationService_SendRelease_FullMethodName = "/notification.v1.NotificationService/SendRelease"
+	NotificationService_ReserveConfirmation_FullMethodName = "/notification.v1.NotificationService/ReserveConfirmation"
+	NotificationService_CommitConfirmation_FullMethodName  = "/notification.v1.NotificationService/CommitConfirmation"
+	NotificationService_CancelConfirmation_FullMethodName  = "/notification.v1.NotificationService/CancelConfirmation"
+	NotificationService_SendRelease_FullMethodName         = "/notification.v1.NotificationService/SendRelease"
 )
 
 // NotificationServiceClient is the client API for NotificationService service.
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type NotificationServiceClient interface {
-	SendConfirm(ctx context.Context, in *SendConfirmRequest, opts ...grpc.CallOption) (*SendResponse, error)
+	ReserveConfirmation(ctx context.Context, in *ReserveConfirmationRequest, opts ...grpc.CallOption) (*ConfirmationResponse, error)
+	CommitConfirmation(ctx context.Context, in *CommitConfirmationRequest, opts ...grpc.CallOption) (*ConfirmationResponse, error)
+	CancelConfirmation(ctx context.Context, in *CancelConfirmationRequest, opts ...grpc.CallOption) (*ConfirmationResponse, error)
 	SendRelease(ctx context.Context, in *SendReleaseRequest, opts ...grpc.CallOption) (*SendResponse, error)
 }
 
@@ -39,10 +43,30 @@ func NewNotificationServiceClient(cc grpc.ClientConnInterface) NotificationServi
 	return &notificationServiceClient{cc}
 }
 
-func (c *notificationServiceClient) SendConfirm(ctx context.Context, in *SendConfirmRequest, opts ...grpc.CallOption) (*SendResponse, error) {
+func (c *notificationServiceClient) ReserveConfirmation(ctx context.Context, in *ReserveConfirmationRequest, opts ...grpc.CallOption) (*ConfirmationResponse, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
-	out := new(SendResponse)
-	err := c.cc.Invoke(ctx, NotificationService_SendConfirm_FullMethodName, in, out, cOpts...)
+	out := new(ConfirmationResponse)
+	err := c.cc.Invoke(ctx, NotificationService_ReserveConfirmation_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *notificationServiceClient) CommitConfirmation(ctx context.Context, in *CommitConfirmationRequest, opts ...grpc.CallOption) (*ConfirmationResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ConfirmationResponse)
+	err := c.cc.Invoke(ctx, NotificationService_CommitConfirmation_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *notificationServiceClient) CancelConfirmation(ctx context.Context, in *CancelConfirmationRequest, opts ...grpc.CallOption) (*ConfirmationResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ConfirmationResponse)
+	err := c.cc.Invoke(ctx, NotificationService_CancelConfirmation_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -63,7 +87,9 @@ func (c *notificationServiceClient) SendRelease(ctx context.Context, in *SendRel
 // All implementations must embed UnimplementedNotificationServiceServer
 // for forward compatibility.
 type NotificationServiceServer interface {
-	SendConfirm(context.Context, *SendConfirmRequest) (*SendResponse, error)
+	ReserveConfirmation(context.Context, *ReserveConfirmationRequest) (*ConfirmationResponse, error)
+	CommitConfirmation(context.Context, *CommitConfirmationRequest) (*ConfirmationResponse, error)
+	CancelConfirmation(context.Context, *CancelConfirmationRequest) (*ConfirmationResponse, error)
 	SendRelease(context.Context, *SendReleaseRequest) (*SendResponse, error)
 	mustEmbedUnimplementedNotificationServiceServer()
 }
@@ -75,8 +101,14 @@ type NotificationServiceServer interface {
 // pointer dereference when methods are called.
 type UnimplementedNotificationServiceServer struct{}
 
-func (UnimplementedNotificationServiceServer) SendConfirm(context.Context, *SendConfirmRequest) (*SendResponse, error) {
-	return nil, status.Error(codes.Unimplemented, "method SendConfirm not implemented")
+func (UnimplementedNotificationServiceServer) ReserveConfirmation(context.Context, *ReserveConfirmationRequest) (*ConfirmationResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ReserveConfirmation not implemented")
+}
+func (UnimplementedNotificationServiceServer) CommitConfirmation(context.Context, *CommitConfirmationRequest) (*ConfirmationResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method CommitConfirmation not implemented")
+}
+func (UnimplementedNotificationServiceServer) CancelConfirmation(context.Context, *CancelConfirmationRequest) (*ConfirmationResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method CancelConfirmation not implemented")
 }
 func (UnimplementedNotificationServiceServer) SendRelease(context.Context, *SendReleaseRequest) (*SendResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method SendRelease not implemented")
@@ -102,20 +134,56 @@ func RegisterNotificationServiceServer(s grpc.ServiceRegistrar, srv Notification
 	s.RegisterService(&NotificationService_ServiceDesc, srv)
 }
 
-func _NotificationService_SendConfirm_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(SendConfirmRequest)
+func _NotificationService_ReserveConfirmation_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ReserveConfirmationRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(NotificationServiceServer).SendConfirm(ctx, in)
+		return srv.(NotificationServiceServer).ReserveConfirmation(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: NotificationService_SendConfirm_FullMethodName,
+		FullMethod: NotificationService_ReserveConfirmation_FullMethodName,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(NotificationServiceServer).SendConfirm(ctx, req.(*SendConfirmRequest))
+		return srv.(NotificationServiceServer).ReserveConfirmation(ctx, req.(*ReserveConfirmationRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _NotificationService_CommitConfirmation_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(CommitConfirmationRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(NotificationServiceServer).CommitConfirmation(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: NotificationService_CommitConfirmation_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(NotificationServiceServer).CommitConfirmation(ctx, req.(*CommitConfirmationRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _NotificationService_CancelConfirmation_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(CancelConfirmationRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(NotificationServiceServer).CancelConfirmation(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: NotificationService_CancelConfirmation_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(NotificationServiceServer).CancelConfirmation(ctx, req.(*CancelConfirmationRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -146,8 +214,16 @@ var NotificationService_ServiceDesc = grpc.ServiceDesc{
 	HandlerType: (*NotificationServiceServer)(nil),
 	Methods: []grpc.MethodDesc{
 		{
-			MethodName: "SendConfirm",
-			Handler:    _NotificationService_SendConfirm_Handler,
+			MethodName: "ReserveConfirmation",
+			Handler:    _NotificationService_ReserveConfirmation_Handler,
+		},
+		{
+			MethodName: "CommitConfirmation",
+			Handler:    _NotificationService_CommitConfirmation_Handler,
+		},
+		{
+			MethodName: "CancelConfirmation",
+			Handler:    _NotificationService_CancelConfirmation_Handler,
 		},
 		{
 			MethodName: "SendRelease",

@@ -17,11 +17,15 @@ type mockSubscriptionRepository struct {
 	mock.Mock
 }
 
-func (m *mockSubscriptionRepository) UpsertPending(
-	ctx context.Context, sub *subscription.Subscription,
+func (m *mockSubscriptionRepository) CreateForSaga(
+	ctx context.Context, sub *subscription.Subscription, sagaID string,
 ) (bool, error) {
-	args := m.Called(ctx, sub)
+	args := m.Called(ctx, sub, sagaID)
 	return args.Bool(0), args.Error(1)
+}
+
+func (m *mockSubscriptionRepository) CancelBySaga(ctx context.Context, sagaID string) error {
+	return m.Called(ctx, sagaID).Error(0)
 }
 
 func (m *mockSubscriptionRepository) FindByConfirmToken(

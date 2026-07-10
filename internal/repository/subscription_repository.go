@@ -12,7 +12,8 @@ import (
 var ErrNotFound = errors.New("record not found")
 
 type SubscriptionRepository interface {
-	UpsertPending(ctx context.Context, sub *subscription.Subscription) (alreadyActive bool, err error)
+	CreateForSaga(ctx context.Context, sub *subscription.Subscription, sagaID string) (bool, error)
+	CancelBySaga(ctx context.Context, sagaID string) error
 	FindByConfirmToken(ctx context.Context, token string) (*subscription.Subscription, error)
 	FindByUnsubscribeToken(ctx context.Context, token string) (*subscription.Subscription, error)
 	GetByEmail(ctx context.Context, email string) ([]subscription.Subscription, error)
@@ -30,19 +31,21 @@ func NewSubscriptionRepository(db *sql.DB) *SubscriptionRepositoryImpl {
 	return &SubscriptionRepositoryImpl{db: db}
 }
 
-func (r *SubscriptionRepositoryImpl) UpsertPending(
+func (r *SubscriptionRepositoryImpl) CreateForSaga(
 	ctx context.Context,
 	sub *subscription.Subscription,
+	sagaID string,
 ) (bool, error) {
 	query := `
 		INSERT INTO subscriptions (
 			email, repository_id, confirm_token, unsubscribe_token,
-			confirmed, active, created_at, updated_at
+			saga_id, confirmed, active, created_at, updated_at
 		)
-		VALUES ($1, $2, $3, $4, FALSE, TRUE, NOW(), NOW())
+		VALUES ($1, $2, $3, $4, $5, FALSE, TRUE, NOW(), NOW())
 		ON CONFLICT (email, repository_id) DO UPDATE
 		SET confirm_token     = EXCLUDED.confirm_token,
 		    unsubscribe_token = EXCLUDED.unsubscribe_token,
+		    saga_id           = EXCLUDED.saga_id,
 		    confirmed         = FALSE,
 		    active            = TRUE,
 		    updated_at        = NOW()
@@ -57,6 +60,7 @@ func (r *SubscriptionRepositoryImpl) UpsertPending(
 		sub.RepositoryID,
 		sub.ConfirmToken,
 		sub.UnsubscribeToken,
+		sagaID,
 	).Scan(&sub.ID, &sub.ConfirmToken, &sub.UnsubscribeToken)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
@@ -66,6 +70,16 @@ func (r *SubscriptionRepositoryImpl) UpsertPending(
 	}
 
 	return false, nil
+}
+
+func (r *SubscriptionRepositoryImpl) CancelBySaga(ctx context.Context, sagaID string) error {
+	const query = `DELETE FROM subscriptions WHERE saga_id = $1`
+
+	if _, err := r.db.ExecContext(ctx, query, sagaID); err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func (r *SubscriptionRepositoryImpl) FindByConfirmToken(

@@ -20,16 +20,21 @@ func (m *mockGitHubClient) GetLatestRelease(ctx context.Context, owner, repo str
 	return args.String(0), args.String(1), args.Error(2)
 }
 
-type mockMailer struct {
-	mock.Mock
+type stubNotifier struct {
+	reserveErr  error
+	commitErr   error
+	cancelCalls int
 }
 
-func (m *mockMailer) SendConfirmation(email, link string) error {
-	args := m.Called(email, link)
-	return args.Error(0)
+func (s *stubNotifier) ReserveConfirmation(_ context.Context, _, _, _ string) error {
+	return s.reserveErr
 }
 
-func (m *mockMailer) SendNewRelease(email, repo, tag, name, url string) error {
-	args := m.Called(email, repo, tag, name, url)
-	return args.Error(0)
+func (s *stubNotifier) CommitConfirmation(_ context.Context, _ string) error {
+	return s.commitErr
+}
+
+func (s *stubNotifier) CancelConfirmation(_ context.Context, _ string) error {
+	s.cancelCalls++
+	return nil
 }

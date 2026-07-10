@@ -4,9 +4,11 @@ import (
 	"context"
 	"errors"
 
+	"github.com/google/uuid"
+
 	"github.com/Dashulya-coder/CaseTaskNotifier/internal/github"
-	"github.com/Dashulya-coder/CaseTaskNotifier/internal/mailer"
 	"github.com/Dashulya-coder/CaseTaskNotifier/internal/repo"
+	"github.com/Dashulya-coder/CaseTaskNotifier/internal/saga"
 	"github.com/Dashulya-coder/CaseTaskNotifier/internal/urlbuilder"
 	"github.com/Dashulya-coder/CaseTaskNotifier/internal/validator"
 )
@@ -20,13 +22,22 @@ var (
 	ErrTokenNotFound     = errors.New("token not found")
 )
 
+var errAlreadyActive = errors.New("subscription already active")
+
 type SubscriptionStore interface {
-	UpsertPending(ctx context.Context, sub *Subscription) (alreadyActive bool, err error)
+	CreateForSaga(ctx context.Context, sub *Subscription, sagaID string) (alreadyActive bool, err error)
+	CancelBySaga(ctx context.Context, sagaID string) error
 	FindByConfirmToken(ctx context.Context, token string) (*Subscription, error)
 	FindByUnsubscribeToken(ctx context.Context, token string) (*Subscription, error)
 	GetByEmail(ctx context.Context, email string) ([]Subscription, error)
 	ConfirmByToken(ctx context.Context, token string) error
 	DeactivateByToken(ctx context.Context, token string) error
+}
+
+type ConfirmationNotifier interface {
+	ReserveConfirmation(ctx context.Context, sagaID, email, confirmURL string) error
+	CommitConfirmation(ctx context.Context, sagaID string) error
+	CancelConfirmation(ctx context.Context, sagaID string) error
 }
 
 type RepoStore interface {
@@ -49,7 +60,7 @@ type SubscriptionServiceImpl struct {
 	subRepo  SubscriptionStore
 	repoRepo RepoStore
 	ghClient github.Client
-	mailer   mailer.ConfirmationSender
+	notifier ConfirmationNotifier
 	urls     urlbuilder.URLBuilder
 	tokenGen TokenGenerator
 }
@@ -58,7 +69,7 @@ func NewSubscriptionService(
 	subRepo SubscriptionStore,
 	repoRepo RepoStore,
 	ghClient github.Client,
-	m mailer.ConfirmationSender,
+	notifier ConfirmationNotifier,
 	urls urlbuilder.URLBuilder,
 	tokenGen TokenGenerator,
 ) *SubscriptionServiceImpl {
@@ -66,7 +77,7 @@ func NewSubscriptionService(
 		subRepo:  subRepo,
 		repoRepo: repoRepo,
 		ghClient: ghClient,
-		mailer:   m,
+		notifier: notifier,
 		urls:     urls,
 		tokenGen: tokenGen,
 	}
@@ -113,15 +124,55 @@ func (s *SubscriptionServiceImpl) Subscribe(ctx context.Context, email, fullName
 		UnsubscribeToken: unsubscribeToken,
 	}
 
-	alreadyActive, err := s.subRepo.UpsertPending(ctx, sub)
-	if err != nil {
+	sagaID := uuid.NewString()
+
+	if err := saga.Run(ctx, s.buildSubscribeSaga(sub, email, sagaID)...); err != nil {
+		if errors.Is(err, errAlreadyActive) {
+			return ErrAlreadySubscribed
+		}
 		return err
 	}
-	if alreadyActive {
-		return ErrAlreadySubscribed
-	}
 
-	return s.mailer.SendConfirmation(email, s.urls.ConfirmURL(sub.ConfirmToken))
+	return nil
+}
+
+func (s *SubscriptionServiceImpl) buildSubscribeSaga(sub *Subscription, email, sagaID string) []saga.Step {
+	confirmURL := s.urls.ConfirmURL(sub.ConfirmToken)
+
+	return []saga.Step{
+		{
+			Name: "create-subscription",
+			Action: func(ctx context.Context) error {
+				active, err := s.subRepo.CreateForSaga(ctx, sub, sagaID)
+				if err != nil {
+					return err
+				}
+				if active {
+					return errAlreadyActive
+				}
+				return nil
+			},
+			Compensation: func(ctx context.Context) error {
+				return s.subRepo.CancelBySaga(ctx, sagaID)
+			},
+		},
+		{
+			Name: "reserve-confirmation",
+			Action: func(ctx context.Context) error {
+				return s.notifier.ReserveConfirmation(ctx, sagaID, email, confirmURL)
+			},
+			Compensation: func(ctx context.Context) error {
+				return s.notifier.CancelConfirmation(ctx, sagaID)
+			},
+		},
+		{
+			Name:  "commit-confirmation",
+			Pivot: true,
+			Action: func(ctx context.Context) error {
+				return s.notifier.CommitConfirmation(ctx, sagaID)
+			},
+		},
+	}
 }
 
 func (s *SubscriptionServiceImpl) Confirm(ctx context.Context, token string) error {
