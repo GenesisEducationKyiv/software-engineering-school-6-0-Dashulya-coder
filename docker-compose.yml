@@ -1,3 +1,4 @@
+
 services:
   db:
     image: postgres:15
@@ -31,6 +32,21 @@ services:
       - "1025:1025"
       - "8025:8025"
 
+  rabbitmq:
+    image: rabbitmq:3-management
+    container_name: rabbitmq
+    environment:
+      RABBITMQ_DEFAULT_USER: app
+      RABBITMQ_DEFAULT_PASS: app
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "check_port_connectivity"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
   notifier:
     build:
       context: .
@@ -40,6 +56,7 @@ services:
       GRPC_PORT: "9091"
       METRICS_PORT: "9092"
       DATABASE_URL: "postgres://postgres:postgres@notifier-db:5432/notifications?sslmode=disable"
+      RABBITMQ_URL: "amqp://app:app@rabbitmq:5672/"
       SMTP_HOST: mailhog
       SMTP_PORT: "1025"
     ports:
@@ -47,6 +64,8 @@ services:
       - "9092:9092"
     depends_on:
       notifier-db:
+        condition: service_healthy
+      rabbitmq:
         condition: service_healthy
       mailhog:
         condition: service_started
@@ -90,6 +109,7 @@ services:
     environment:
       - DATABASE_URL=postgres://postgres:postgres@db:5432/notifier?sslmode=disable
       - NOTIFIER_ADDR=notifier:9091
+      - RABBITMQ_URL=amqp://app:app@rabbitmq:5672/
       - GITHUB_TOKEN=
       - BASE_URL=http://localhost:8080
       - PORT=8080
@@ -97,8 +117,12 @@ services:
       - LOG_LEVEL=debug
       - LOG_SAMPLE_RATE=10
     depends_on:
-      - db
-      - notifier
+      db:
+        condition: service_started
+      notifier:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
 
   elasticsearch:
     image: docker.elastic.co/elasticsearch/elasticsearch:8.13.0

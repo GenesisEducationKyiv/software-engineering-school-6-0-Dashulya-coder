@@ -12,6 +12,7 @@ type Config struct {
 	DatabaseURL   string
 	GithubToken   string
 	NotifierAddr  string
+	RabbitURL     string
 	BaseURL       string
 	ScanInterval  time.Duration
 	LogLevel      string
@@ -34,6 +35,7 @@ func Load() *Config {
 		DatabaseURL:   getEnv("DATABASE_URL", ""),
 		GithubToken:   os.Getenv("GITHUB_TOKEN"),
 		NotifierAddr:  getEnv("NOTIFIER_ADDR", "localhost:9091"),
+		RabbitURL:     getEnv("RABBITMQ_URL", "amqp://guest:guest@localhost:5672/"),
 		BaseURL:       getEnv("BASE_URL", "http://localhost:8080"),
 		ScanInterval:  scanInterval,
 		LogLevel:      getEnv("LOG_LEVEL", "info"),

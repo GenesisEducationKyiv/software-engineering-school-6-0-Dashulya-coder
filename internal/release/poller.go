@@ -24,7 +24,7 @@ type PollerImpl struct {
 	subRepo  repository.SubscriptionRepository
 	repoRepo repository.GitHubRepository
 	ghClient github.Client
-	mailer   mailer.Mailer
+	mailer   mailer.ReleaseSender
 	urls     urlbuilder.URLBuilder
 }
 
@@ -32,7 +32,7 @@ func NewPoller(
 	subRepo repository.SubscriptionRepository,
 	repoRepo repository.GitHubRepository,
 	ghClient github.Client,
-	m mailer.Mailer,
+	m mailer.ReleaseSender,
 	urls urlbuilder.URLBuilder,
 ) *PollerImpl {
 	return &PollerImpl{

@@ -16,6 +16,7 @@ import (
 	httphandlers "github.com/Dashulya-coder/CaseTaskNotifier/internal/http/handlers"
 	httprouter "github.com/Dashulya-coder/CaseTaskNotifier/internal/http/router"
 	applogger "github.com/Dashulya-coder/CaseTaskNotifier/internal/logger"
+	"github.com/Dashulya-coder/CaseTaskNotifier/internal/notification/publisher"
 	"github.com/Dashulya-coder/CaseTaskNotifier/internal/release"
 	"github.com/Dashulya-coder/CaseTaskNotifier/internal/repository"
 	"github.com/Dashulya-coder/CaseTaskNotifier/internal/scanner"
@@ -71,13 +72,23 @@ func Run() error {
 		}
 	}()
 
+	releasePublisher, err := publisher.New(cfg.RabbitURL)
+	if err != nil {
+		return err
+	}
+	defer func() {
+		if err := releasePublisher.Close(); err != nil {
+			slog.Error("failed to close release publisher", "error", err)
+		}
+	}()
+
 	subRepo := repository.NewSubscriptionRepository(db)
 	repoRepo := repository.NewGitHubRepository(db)
 
 	subService := subscription.NewSubscriptionService(
 		subRepo, repoRepo, ghClient, notifier, urls, token.New(),
 	)
-	poller := release.NewPoller(subRepo, repoRepo, ghClient, notifier, urls)
+	poller := release.NewPoller(subRepo, repoRepo, ghClient, releasePublisher, urls)
 
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
