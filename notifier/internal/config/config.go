@@ -8,6 +8,7 @@ import (
 
 type Config struct {
 	GRPCPort    string
+	RESTPort    string
 	MetricsPort string
 	DatabaseURL string
 	RabbitURL   string
@@ -26,6 +27,7 @@ func Load() *Config {
 
 	cfg := &Config{
 		GRPCPort:    getEnv("GRPC_PORT", "9091"),
+		RESTPort:    getEnv("REST_PORT", "9094"),
 		MetricsPort: getEnv("METRICS_PORT", "9092"),
 		DatabaseURL: getEnv("DATABASE_URL", ""),
 		RabbitURL:   getEnv("RABBITMQ_URL", "amqp://guest:guest@localhost:5672/"),

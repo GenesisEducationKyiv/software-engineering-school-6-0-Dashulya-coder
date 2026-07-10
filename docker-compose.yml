@@ -55,6 +55,7 @@ services:
     environment:
       GRPC_PORT: "9091"
       METRICS_PORT: "9092"
+      REST_PORT: "9094"
       DATABASE_URL: "postgres://postgres:postgres@notifier-db:5432/notifications?sslmode=disable"
       RABBITMQ_URL: "amqp://app:app@rabbitmq:5672/"
       SMTP_HOST: mailhog
@@ -62,6 +63,7 @@ services:
     ports:
       - "9091:9091"
       - "9092:9092"
+      - "9094:9094"
     depends_on:
       notifier-db:
         condition: service_healthy
@@ -109,6 +111,8 @@ services:
     environment:
       - DATABASE_URL=postgres://postgres:postgres@db:5432/notifier?sslmode=disable
       - NOTIFIER_ADDR=notifier:9091
+      - NOTIFIER_REST_ADDR=http://notifier:9094
+      - NOTIFIER_TRANSPORT=grpc
       - RABBITMQ_URL=amqp://app:app@rabbitmq:5672/
       - GITHUB_TOKEN=
       - BASE_URL=http://localhost:8080

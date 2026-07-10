@@ -233,6 +233,67 @@ docker-compose down
 
 ---
 
+## gRPC vs REST — transport comparison
+
+The monolith → notifier **confirmation** call is implemented over **two transports side by side**:
+gRPC (HTTP/2 + Protobuf) and REST (HTTP/1.1 + JSON). Both hit the **same** `delivery.Service`
+and Postgres, so the only difference is the wire protocol. The active transport is selected with
+`NOTIFIER_TRANSPORT=grpc|rest`.
+
+The notifier exposes the same operation on both:
+- gRPC: `notification.v1.NotificationService/ReserveConfirmation` (port `9091`)
+- REST: `POST /v1/confirmations/reserve` (port `9094`)
+
+### Method
+
+`ReserveConfirmation` was load-tested (it is a pure DB insert, no SMTP). Same fixed payload,
+**50 connections, 20s, localhost**, two rounds each:
+
+```bash
+# gRPC — ghz (uses server reflection)
+ghz --insecure --call notification.v1.NotificationService/ReserveConfirmation \
+  -d '{"saga_id":"11111111-1111-1111-1111-111111111111","email":"a@b.com","confirm_url":"http://x/c/t"}' \
+  -c 50 -z 20s localhost:9091
+
+# REST — autocannon
+npx autocannon -c 50 -d 20 -m POST -H 'content-type=application/json' \
+  -b '{"saga_id":"11111111-1111-1111-1111-111111111111","email":"a@b.com","confirm_url":"http://x/c/t"}' \
+  http://localhost:9094/v1/confirmations/reserve
+```
+
+### Results
+
+| Transport | Tool | Throughput (req/s) | Avg latency | p99 latency |
+|-----------|------|--------------------|-------------|-------------|
+| gRPC (HTTP/2 + Protobuf) | ghz | ~2477 / ~2717 | ~19 ms | 57–75 ms |
+| REST (HTTP/1.1 + JSON) | autocannon | ~2794 / ~2798 | ~17 ms | 54–56 ms |
+
+### What we got and why
+
+Contrary to the usual "gRPC is faster" expectation, the two are **roughly equal**, with REST
+marginally ahead on this workload. Reasons:
+
+1. **The bottleneck is Postgres, not the wire.** `ReserveConfirmation` is an
+   `INSERT ... ON CONFLICT`; both transports queue behind the same database, so throughput sits at
+   the DB ceiling and transport overhead is masked.
+2. **The gRPC path does more per request here** — protobuf decoding, `protovalidate`
+   (email/uuid/uri checks) and the trace + recovery interceptors — while the REST handler only
+   checks for non-empty fields.
+3. **Tiny payload over loopback.** gRPC's real wins — binary Protobuf vs JSON size, HPACK header
+   compression, HTTP/2 multiplexing over a single connection, and streaming — barely matter for a
+   ~90-byte body on localhost with no network latency.
+4. **Different load tools** (ghz vs autocannon) carry their own client-side overhead, so this is not
+   a perfectly controlled comparison.
+
+**Where gRPC would pull ahead:** large messages, high-latency/WAN links, streaming RPCs, many
+multiplexed concurrent calls over one connection, and strict schema + codegen across polyglot
+services.
+
+**Caveats:** localhost, no TLS, single notifier instance, a fixed `saga_id` (mostly the
+`ON CONFLICT` path), two short rounds — treat the numbers as directional, not absolute.
+
+---
+
 ## Author
 
 **Daria Ukshe**
